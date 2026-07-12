@@ -9082,5 +9082,9 @@
   "hud.cobblemon.throw_title": "Throw out your Cobblemon",
   "hud.cobblemon.throw_hint": "Press R to send out / recall",
   "hud.cobblemon.choose_starter": "Press M to choose a starter",
-  "hud.cobblemon.throw": "Throw out your Cobblemon"
+  "hud.cobblemon.throw": "Throw out your Cobblemon",
+  "screen.cobblemon.starter_title": "Choose your starter!",
+  "screen.cobblemon.starter_subtitle": "Pick one to begin your journey",
+  "screen.cobblemon.starter_picked": "You chose %s",
+  "screen.cobblemon.starter_confirm": "I choose you!"
 }

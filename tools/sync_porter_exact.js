@@ -519,13 +519,23 @@ function mergeEnUsExtras() {
     "hud.cobblemon.throw_hint": "Press R to send out / recall",
     "hud.cobblemon.choose_starter": "Press M to choose a starter",
     "hud.cobblemon.throw": "Throw out your Cobblemon",
+    // Starter select UI (our screen keys)
+    "screen.cobblemon.starter_title": "Choose your starter!",
+    "screen.cobblemon.starter_subtitle": "Pick one to begin your journey",
+    "screen.cobblemon.starter_picked": "You chose %s",
+    "screen.cobblemon.starter_confirm": "I choose you!",
   };
-  // Always force port-only HUD keys; other extras only if missing
+  // Always force port-only HUD / starter keys; other extras only if missing
   const forceKeys = new Set([
     "hud.cobblemon.throw_title",
     "hud.cobblemon.throw_hint",
     "hud.cobblemon.choose_starter",
     "hud.cobblemon.throw",
+    "screen.cobblemon.starter_title",
+    "screen.cobblemon.starter_subtitle",
+    "screen.cobblemon.starter_picked",
+    "screen.cobblemon.starter_confirm",
+    "screen.cobblemon.starter",
   ]);
   let added = 0;
   for (const [k, v] of Object.entries(extras)) {

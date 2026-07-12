@@ -1,1 +1,8 @@
-{"variants":{"facing=south,part=top,on=false":{"model":"cobblemon:block/pc_top"},"facing=west,part=top,on=false":{"model":"cobblemon:block/pc_top","y":90},"facing=north,part=top,on=false":{"model":"cobblemon:block/pc_top","y":180},"facing=east,part=top,on=false":{"model":"cobblemon:block/pc_top","y":270},"facing=south,part=top,on=true":{"model":"cobblemon:block/pc_top_on"},"facing=west,part=top,on=true":{"model":"cobblemon:block/pc_top_on","y":90},"facing=north,part=top,on=true":{"model":"cobblemon:block/pc_top_on","y":180},"facing=east,part=top,on=true":{"model":"cobblemon:block/pc_top_on","y":270},"facing=south,part=bottom,on=false":{"model":"cobblemon:block/pc_bottom"},"facing=west,part=bottom,on=false":{"model":"cobblemon:block/pc_bottom","y":90},"facing=north,part=bottom,on=false":{"model":"cobblemon:block/pc_bottom","y":180},"facing=east,part=bottom,on=false":{"model":"cobblemon:block/pc_bottom","y":270},"facing=south,part=bottom,on=true":{"model":"cobblemon:block/pc_bottom"},"facing=west,part=bottom,on=true":{"model":"cobblemon:block/pc_bottom","y":90},"facing=north,part=bottom,on=true":{"model":"cobblemon:block/pc_bottom","y":180},"facing=east,part=bottom,on=true":{"model":"cobblemon:block/pc_bottom","y":270}}}
+{
+  "variants": {
+    "facing=north": { "model": "cobblemon:block/pc", "y": 180 },
+    "facing=south": { "model": "cobblemon:block/pc" },
+    "facing=west": { "model": "cobblemon:block/pc", "y": 90 },
+    "facing=east": { "model": "cobblemon:block/pc", "y": 270 }
+  }
+}
