@@ -1,0 +1,1 @@
+{"type":"choice","keys":["behemoth_warrior"],"default":"hero","choices":["hero","crowned"],"isAspect":true,"aspectFormat":"{{choice}}"}

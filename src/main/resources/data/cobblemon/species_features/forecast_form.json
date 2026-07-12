@@ -1,0 +1,1 @@
+{"type":"choice","keys":["forecast_form"],"default":"normal","choices":["normal","sunny","rainy","snowy"],"isAspect":true,"aspectFormat":"{{choice}}-form"}

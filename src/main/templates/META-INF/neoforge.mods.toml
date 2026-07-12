@@ -1,0 +1,32 @@
+license="${mod_license}"
+issueTrackerURL="https://gitlab.com/cable-mc/cobblemon/-/issues"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+displayURL="https://cobblemon.com/"
+authors="Community 26.2 port (assets from The Cobblemon Team)"
+credits="Thanks to The Cobblemon Team, Mojang, Blockbench, Smogon, and community contributors. Unofficial Minecraft 26.2 port built from Cobblemon 1.7.3 assets/datapacks."
+description='''
+Cobblemon community port for Minecraft 26.2 / NeoForge.
+
+Adds Pokémon to the world: find, battle, capture, and evolve them.
+Assets and datapacks from Cobblemon 1.7.3; gameplay reimplemented for 26.2 APIs.
+
+NOT an official CobbledStudios release — intended for evaluation and upstreaming.
+'''
+
+[[dependencies.${mod_id}]]
+    modId="neoforge"
+    type="required"
+    versionRange="[${neo_version},)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="minecraft"
+    type="required"
+    versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"

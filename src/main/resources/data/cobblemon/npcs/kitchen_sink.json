@@ -1,0 +1,1 @@
+{"hitbox":"player","names":["The Kitchen Sink"],"presets":[],"canDespawn":false,"ai":[{"type":"apply_behaviours","presets":["cobblemon:kitchen_sink"]}]}

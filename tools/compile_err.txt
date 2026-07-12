@@ -1,0 +1,27 @@
+﻿Starting a Gradle Daemon, 3 busy and 9 stopped Daemons could not be reused, use --status for details
+Reusing configuration cache.
+> Task :jarJar NO-SOURCE
+> Task :generateModMetadata UP-TO-DATE
+> Task :createMinecraftArtifacts UP-TO-DATE
+> Task :processResources
+
+> Task :compileJava
+.\gradlew.bat : Note: 
+C:\Users\conne\Desktop\pixelmontest\fakemons\src\main\java\ai\xai\fakemon\entity\WildMonEntity.java uses or overrides 
+a deprecated API.
+At line:1 char:167
++ ... \conne\Desktop\pixelmontest\fakemons"; .\gradlew.bat jar 2>&1 | Out-F ...
++                                            ~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Note: C:\Users\...deprecated API.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Note: Recompile with -Xlint:deprecation for details.
+
+> Task :classes
+> Task :jar
+
+[Incubating] Problems report is available at: file:///C:/Users/conne/Desktop/pixelmontest/fakemons/build/reports/problems/problems-report.html
+
+BUILD SUCCESSFUL in 10s
+5 actionable tasks: 3 executed, 2 up-to-date
+Configuration cache entry reused.

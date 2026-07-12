@@ -1,0 +1,1 @@
+{"type":"choice","keys":["paint_color"],"default":"none","choices":["original"],"isAspect":true,"aspectFormat":"{{choice}}-color"}

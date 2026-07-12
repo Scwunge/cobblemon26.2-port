@@ -1,0 +1,1 @@
+{"type":"choice","keys":["prism_fusion"],"default":"none","choices":["dusk","dawn","ultra"],"isAspect":true,"aspectFormat":"{{choice}}-fusion"}

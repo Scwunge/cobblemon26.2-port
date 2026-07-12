@@ -1,0 +1,1 @@
+{"type":"choice","keys":["tera_form"],"default":"normal","choices":["normal","terastal","stellar"],"isAspect":true,"aspectFormat":"{{choice}}-form"}

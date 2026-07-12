@@ -1,0 +1,1 @@
+{"type":"choice","keys":["orb_forme"],"default":"altered","choices":["altered","origin"],"isAspect":true,"aspectFormat":"{{choice}}-forme"}

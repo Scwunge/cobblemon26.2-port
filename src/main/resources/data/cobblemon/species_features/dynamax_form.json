@@ -1,0 +1,1 @@
+{"type":"choice","keys":["dynamax_form"],"default":"none","choices":["gmax","eternamax"],"isAspect":true,"aspectFormat":"{{choice}}"}

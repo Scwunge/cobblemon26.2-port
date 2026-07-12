@@ -1,0 +1,1 @@
+{"type":"choice","keys":["absofusion"],"default":"none","choices":["white","black"],"isAspect":true,"aspectFormat":"{{choice}}-fusion"}

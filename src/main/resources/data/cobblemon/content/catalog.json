@@ -1,0 +1,20 @@
+{
+  "generatedAt": "2026-07-12T12:43:42.093Z",
+  "source": "porter Cobblemon exact sync",
+  "namespace": "cobblemon",
+  "reserved": [
+    "party_badge",
+    "pc",
+    "fire_gem",
+    "water_gem",
+    "thunder_gem",
+    "leaf_gem",
+    "moon_gem",
+    "wild_mon_spawn_egg",
+    "bind_orb"
+  ],
+  "counts": {
+    "items": 727,
+    "blocks": 308
+  }
+}

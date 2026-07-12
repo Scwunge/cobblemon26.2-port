@@ -1,0 +1,229 @@
+package ai.xai.fakemon.client.model;
+
+import net.minecraft.client.model.EntityModel;
+import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.model.geom.PartPose;
+import net.minecraft.client.model.geom.builders.CubeDeformation;
+import net.minecraft.client.model.geom.builders.CubeListBuilder;
+import net.minecraft.client.model.geom.builders.LayerDefinition;
+import net.minecraft.client.model.geom.builders.MeshDefinition;
+import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.util.Mth;
+
+/** Auto-generated from GLB via tools/meshy_import/glb_to_mc.js */
+public class FoxVoxelModel extends EntityModel<MonRenderState> {
+    private final ModelPart root;
+    public FoxVoxelModel(ModelPart root) {
+        super(root);
+        this.root = root;
+    }
+    public static LayerDefinition createBodyLayer() {
+        MeshDefinition mesh = new MeshDefinition();
+        PartDefinition root = mesh.getRoot();
+        CubeDeformation soft = new CubeDeformation(0.15F);
+        root.addOrReplaceChild("p0", CubeListBuilder.create().texOffs(0, 0)
+                .addBox(-3.429F, 16F, -3.429F, 2.286F, 3.429F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p1", CubeListBuilder.create().texOffs(3, 5)
+                .addBox(1.143F, 16F, -3.429F, 2.286F, 3.429F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p2", CubeListBuilder.create().texOffs(6, 10)
+                .addBox(2.286F, 19.429F, -1.143F, 1.143F, 1.143F, 5.714F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p3", CubeListBuilder.create().texOffs(9, 15)
+                .addBox(-3.429F, 21.714F, 1.143F, 1.143F, 1.143F, 5.714F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p4", CubeListBuilder.create().texOffs(12, 20)
+                .addBox(2.286F, 21.714F, 1.143F, 1.143F, 1.143F, 5.714F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p5", CubeListBuilder.create().texOffs(15, 25)
+                .addBox(-1.143F, 17.143F, -8F, 2.286F, 1.143F, 2.286F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p6", CubeListBuilder.create().texOffs(18, 30)
+                .addBox(1.143F, 19.429F, -6.857F, 1.143F, 1.143F, 4.571F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p7", CubeListBuilder.create().texOffs(21, 35)
+                .addBox(-2.286F, 20.571F, -4.571F, 2.286F, 1.143F, 2.286F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p8", CubeListBuilder.create().texOffs(24, 40)
+                .addBox(-3.429F, 20.571F, -3.429F, 1.143F, 2.286F, 2.286F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p9", CubeListBuilder.create().texOffs(27, 45)
+                .addBox(2.286F, 20.571F, -3.429F, 1.143F, 2.286F, 2.286F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p10", CubeListBuilder.create().texOffs(30, 2)
+                .addBox(-3.429F, 19.429F, -1.143F, 2.286F, 1.143F, 2.286F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p11", CubeListBuilder.create().texOffs(33, 7)
+                .addBox(-3.429F, 16F, 2.286F, 2.286F, 2.286F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p12", CubeListBuilder.create().texOffs(36, 12)
+                .addBox(1.143F, 16F, 2.286F, 2.286F, 2.286F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p13", CubeListBuilder.create().texOffs(39, 17)
+                .addBox(-1.143F, 17.143F, 2.286F, 2.286F, 2.286F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p14", CubeListBuilder.create().texOffs(42, 22)
+                .addBox(-2.286F, 19.429F, 3.429F, 4.571F, 1.143F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p15", CubeListBuilder.create().texOffs(45, 27)
+                .addBox(-2.286F, 20.571F, 5.714F, 2.286F, 1.143F, 2.286F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p16", CubeListBuilder.create().texOffs(0, 32)
+                .addBox(-2.286F, 19.429F, -5.714F, 1.143F, 1.143F, 3.429F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p17", CubeListBuilder.create().texOffs(3, 37)
+                .addBox(0F, 19.429F, -3.429F, 1.143F, 1.143F, 3.429F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p18", CubeListBuilder.create().texOffs(6, 42)
+                .addBox(-1.143F, 21.714F, -3.429F, 1.143F, 1.143F, 3.429F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p19", CubeListBuilder.create().texOffs(9, 47)
+                .addBox(-3.429F, 20.571F, 0F, 1.143F, 1.143F, 3.429F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p20", CubeListBuilder.create().texOffs(12, 4)
+                .addBox(2.286F, 20.571F, 0F, 1.143F, 1.143F, 3.429F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p21", CubeListBuilder.create().texOffs(15, 9)
+                .addBox(-2.286F, 18.286F, 1.143F, 1.143F, 1.143F, 3.429F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p22", CubeListBuilder.create().texOffs(18, 14)
+                .addBox(1.143F, 18.286F, 1.143F, 1.143F, 1.143F, 3.429F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p23", CubeListBuilder.create().texOffs(21, 19)
+                .addBox(-3.429F, 19.429F, 1.143F, 1.143F, 1.143F, 3.429F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p24", CubeListBuilder.create().texOffs(24, 24)
+                .addBox(-1.143F, 21.714F, 1.143F, 1.143F, 1.143F, 3.429F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p25", CubeListBuilder.create().texOffs(27, 29)
+                .addBox(-1.143F, 22.857F, 3.429F, 1.143F, 1.143F, 3.429F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p26", CubeListBuilder.create().texOffs(30, 34)
+                .addBox(-2.286F, 17.143F, -6.857F, 1.143F, 1.143F, 2.286F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p27", CubeListBuilder.create().texOffs(33, 39)
+                .addBox(1.143F, 17.143F, -6.857F, 1.143F, 1.143F, 2.286F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p28", CubeListBuilder.create().texOffs(36, 44)
+                .addBox(-2.286F, 19.429F, -6.857F, 2.286F, 1.143F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p29", CubeListBuilder.create().texOffs(39, 1)
+                .addBox(1.143F, 20.571F, -4.571F, 1.143F, 1.143F, 2.286F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p30", CubeListBuilder.create().texOffs(42, 6)
+                .addBox(-1.143F, 18.286F, -3.429F, 1.143F, 2.286F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p31", CubeListBuilder.create().texOffs(45, 11)
+                .addBox(-3.429F, 16F, -2.286F, 2.286F, 1.143F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p32", CubeListBuilder.create().texOffs(0, 16)
+                .addBox(1.143F, 16F, -2.286F, 2.286F, 1.143F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p33", CubeListBuilder.create().texOffs(3, 21)
+                .addBox(-3.429F, 18.286F, -2.286F, 1.143F, 1.143F, 2.286F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p34", CubeListBuilder.create().texOffs(6, 26)
+                .addBox(2.286F, 18.286F, -2.286F, 1.143F, 1.143F, 2.286F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p35", CubeListBuilder.create().texOffs(9, 31)
+                .addBox(-1.143F, 19.429F, -2.286F, 1.143F, 1.143F, 2.286F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p36", CubeListBuilder.create().texOffs(12, 36)
+                .addBox(-2.286F, 18.286F, -1.143F, 2.286F, 1.143F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p37", CubeListBuilder.create().texOffs(15, 41)
+                .addBox(1.143F, 18.286F, -1.143F, 1.143F, 2.286F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p38", CubeListBuilder.create().texOffs(18, 46)
+                .addBox(-3.429F, 21.714F, -1.143F, 2.286F, 1.143F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p39", CubeListBuilder.create().texOffs(21, 3)
+                .addBox(1.143F, 21.714F, -1.143F, 2.286F, 1.143F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p40", CubeListBuilder.create().texOffs(24, 8)
+                .addBox(-3.429F, 16F, 3.429F, 2.286F, 1.143F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p41", CubeListBuilder.create().texOffs(27, 13)
+                .addBox(1.143F, 16F, 3.429F, 2.286F, 1.143F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p42", CubeListBuilder.create().texOffs(30, 18)
+                .addBox(-1.143F, 19.429F, 4.571F, 1.143F, 2.286F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p43", CubeListBuilder.create().texOffs(33, 23)
+                .addBox(-3.429F, 20.571F, 4.571F, 2.286F, 1.143F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p44", CubeListBuilder.create().texOffs(36, 28)
+                .addBox(1.143F, 20.571F, 4.571F, 2.286F, 1.143F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p45", CubeListBuilder.create().texOffs(39, 33)
+                .addBox(-2.286F, 22.857F, 4.571F, 1.143F, 1.143F, 2.286F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p46", CubeListBuilder.create().texOffs(42, 38)
+                .addBox(1.143F, 22.857F, 4.571F, 1.143F, 1.143F, 2.286F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p47", CubeListBuilder.create().texOffs(45, 43)
+                .addBox(1.143F, 20.571F, 5.714F, 1.143F, 1.143F, 2.286F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p48", CubeListBuilder.create().texOffs(0, 0)
+                .addBox(0F, 20.571F, 6.857F, 1.143F, 2.286F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p49", CubeListBuilder.create().texOffs(3, 5)
+                .addBox(-2.286F, 21.714F, 6.857F, 2.286F, 1.143F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p50", CubeListBuilder.create().texOffs(6, 10)
+                .addBox(-2.286F, 18.286F, -8F, 1.143F, 1.143F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p51", CubeListBuilder.create().texOffs(9, 15)
+                .addBox(1.143F, 18.286F, -8F, 1.143F, 1.143F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p52", CubeListBuilder.create().texOffs(12, 20)
+                .addBox(-1.143F, 17.143F, -5.714F, 1.143F, 1.143F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p53", CubeListBuilder.create().texOffs(15, 25)
+                .addBox(-3.429F, 18.286F, -5.714F, 1.143F, 1.143F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p54", CubeListBuilder.create().texOffs(18, 30)
+                .addBox(2.286F, 18.286F, -5.714F, 1.143F, 1.143F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p55", CubeListBuilder.create().texOffs(21, 35)
+                .addBox(-2.286F, 17.143F, -2.286F, 1.143F, 1.143F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p56", CubeListBuilder.create().texOffs(24, 40)
+                .addBox(1.143F, 17.143F, -2.286F, 1.143F, 1.143F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p57", CubeListBuilder.create().texOffs(27, 45)
+                .addBox(-1.143F, 18.286F, 0F, 1.143F, 1.143F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p58", CubeListBuilder.create().texOffs(30, 2)
+                .addBox(1.143F, 19.429F, 0F, 1.143F, 1.143F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p59", CubeListBuilder.create().texOffs(33, 7)
+                .addBox(-3.429F, 18.286F, 2.286F, 1.143F, 1.143F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p60", CubeListBuilder.create().texOffs(36, 12)
+                .addBox(2.286F, 18.286F, 2.286F, 1.143F, 1.143F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p61", CubeListBuilder.create().texOffs(39, 17)
+                .addBox(-2.286F, 21.714F, 3.429F, 1.143F, 1.143F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p62", CubeListBuilder.create().texOffs(42, 22)
+                .addBox(1.143F, 21.714F, 3.429F, 1.143F, 1.143F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p63", CubeListBuilder.create().texOffs(45, 27)
+                .addBox(-3.429F, 22.857F, 5.714F, 1.143F, 1.143F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p64", CubeListBuilder.create().texOffs(0, 32)
+                .addBox(2.286F, 22.857F, 5.714F, 1.143F, 1.143F, 1.143F, soft),
+                PartPose.ZERO);
+        root.addOrReplaceChild("p65", CubeListBuilder.create().texOffs(3, 37)
+                .addBox(1.143F, 21.714F, 6.857F, 1.143F, 1.143F, 1.143F, soft),
+                PartPose.ZERO);
+        return LayerDefinition.create(mesh, 64, 64);
+    }
+    @Override
+    public void setupAnim(MonRenderState state) {
+        this.root.yRot = state.yRot * ((float) Math.PI / 180F) * 0.3F;
+        this.root.y = Mth.sin(state.ageInTicks * 0.1F) * 0.4F;
+    }
+}

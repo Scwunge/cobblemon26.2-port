@@ -1,0 +1,1 @@
+{"type":"choice","keys":["blossom_form"],"default":"overcast","choices":["overcast","sunshine"],"isAspect":true,"aspectFormat":"{{choice}}-form"}

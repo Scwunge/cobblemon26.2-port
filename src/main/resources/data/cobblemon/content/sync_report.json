@@ -1,0 +1,15 @@
+{
+  "at": "2026-07-12T12:43:42.745Z",
+  "porter": "C:\\Users\\conne\\Desktop\\porter",
+  "stats": {
+    "copied": 0,
+    "updated": 1,
+    "same": 25625,
+    "skipped": 185,
+    "missingSrc": 0
+  },
+  "catalog": {
+    "items": 727,
+    "blocks": 308
+  }
+}

@@ -1,0 +1,1 @@
+{"visible":false,"configurations":[{"type":"apply_behaviours","condition":"q.entity.behaviour.combat.fights_melee","behaviours":["cobblemon:fights_melee"]}]}

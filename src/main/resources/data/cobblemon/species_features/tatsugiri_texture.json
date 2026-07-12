@@ -1,0 +1,1 @@
+{"type":"choice","keys":["tatsugiri_texture"],"default":"random","choices":["curly","droopy","stretchy"],"isAspect":true,"aspectFormat":"tatsugiri-texture-{{choice}}"}
