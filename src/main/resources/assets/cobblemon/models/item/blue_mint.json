@@ -1,1 +1,1 @@
-﻿{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/mints/blue_mint_seeds"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/mints/blue_mint_seeds","layer0":"cobblemon:item/mints/blue_mint_seeds"}}

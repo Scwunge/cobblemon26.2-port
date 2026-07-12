@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/fossils/fossilized_bird"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/fossils/fossilized_bird","layer0":"cobblemon:item/fossils/fossilized_bird"}}

@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/food/big_malasada"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/food/big_malasada","layer0":"cobblemon:item/food/big_malasada"}}

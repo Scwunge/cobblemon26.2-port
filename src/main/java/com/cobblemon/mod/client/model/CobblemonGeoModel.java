@@ -25,18 +25,37 @@ public class CobblemonGeoModel extends EntityModel<MonRenderState> {
             return;
         }
         BedrockAnimationLoader.AnimationFile file = BedrockAnimationLoader.getOrLoad(animId);
-        // Switch to walk only when clearly moving (hysteresis-friendly threshold).
-        // Do NOT time-scale age by walk speed — Cobblemon clips already encode gait timing;
-        // multiplying age made every mon look sped-up while moving.
         float walkAmt = Math.max(state.walkAnimationSpeed, state.limbSwingAmount);
         boolean walking = walkAmt > 0.12f;
-        BedrockAnimationLoader.Clip clip = walking ? file.findWalk() : file.findIdle();
+
+        BedrockAnimationLoader.Clip clip = null;
+        // Hold-Space flight: full air_fly / air_idle (not sparse ride_air_* T-poses)
+        if (state.isRidingFlight) {
+            if (state.riderPitch > 30f) {
+                clip = file.findAirDive();
+            }
+            if (clip == null && walking) {
+                clip = file.findAirFly();
+            }
+            if (clip == null) {
+                // Hovering in place while holding Space
+                clip = file.findAirIdle();
+            }
+            if (clip == null) {
+                clip = file.findAirFly();
+            }
+        } else if (state.isRidden && walking) {
+            clip = file.findRideGround();
+        }
+
+        if (clip == null) {
+            clip = walking ? file.findWalk() : file.findIdle();
+        }
         if (clip == null) {
             clip = file.findIdle();
         }
         if (clip != null) {
             // Natural tick clock → seconds inside Clip.apply (age/20).
-            // Walk uses the same real-time base so footfalls stay at authored speed.
             clip.apply(this.root, state.ageInTicks);
         }
     }

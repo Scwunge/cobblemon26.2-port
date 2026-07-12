@@ -1,1 +1,1 @@
-{"parent":"item/handheld_rod","textures":{"layer0":"cobblemon:item/fishing/ancient_verdant_rod"},"overrides":[{"predicate":{"cast":1},"model":"cobblemon:item/ancient_verdant_rod_cast"}]}
+{"parent":"item/handheld_rod","textures":{"particle":"cobblemon:item/fishing/ancient_verdant_rod","layer0":"cobblemon:item/fishing/ancient_verdant_rod"},"overrides":[{"predicate":{"cast":1},"model":"cobblemon:item/ancient_verdant_rod_cast"}]}

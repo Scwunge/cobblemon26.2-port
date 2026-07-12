@@ -8,6 +8,7 @@ import java.util.Set;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
+import com.cobblemon.mod.pokedex.PokedexProgress;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
@@ -91,6 +92,24 @@ public final class PlayerPokedex {
 
     public boolean hasCaught(String speciesId) {
         return caught.contains(norm(speciesId));
+    }
+
+    /**
+     * Derived progress for a species id. Does not change persistence
+     * (CODEC still serializes seen/caught string lists).
+     */
+    public PokedexProgress progress(String speciesId) {
+        String id = norm(speciesId);
+        if (id.isEmpty()) {
+            return PokedexProgress.NONE;
+        }
+        if (caught.contains(id)) {
+            return PokedexProgress.CAUGHT;
+        }
+        if (seen.contains(id)) {
+            return PokedexProgress.SEEN;
+        }
+        return PokedexProgress.NONE;
     }
 
     public int seenCount() {

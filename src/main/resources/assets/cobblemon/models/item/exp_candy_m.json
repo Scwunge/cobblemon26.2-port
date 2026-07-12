@@ -1,1 +1,1 @@
-{"parent":"item/generated","textures":{"layer0":"cobblemon:item/experience_candy/exp_candy_m"}}
+{"parent":"item/generated","textures":{"particle":"cobblemon:item/experience_candy/exp_candy_m","layer0":"cobblemon:item/experience_candy/exp_candy_m"}}

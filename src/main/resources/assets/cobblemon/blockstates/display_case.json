@@ -1,8 +1,8 @@
 {
   "variants": {
-    "facing=north": { "model": "cobblemon:block/display_case", "y": 180 },
-    "facing=south": { "model": "cobblemon:block/display_case" },
-    "facing=west": { "model": "cobblemon:block/display_case", "y": 90 },
-    "facing=east": { "model": "cobblemon:block/display_case", "y": 270 }
+    "facing=north": { "model": "cobblemon:block/display_case" },
+    "facing=south": { "model": "cobblemon:block/display_case", "y": 180 },
+    "facing=west": { "model": "cobblemon:block/display_case", "y": 270 },
+    "facing=east": { "model": "cobblemon:block/display_case", "y": 90 }
   }
 }

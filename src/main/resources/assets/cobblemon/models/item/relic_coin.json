@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/relic_coin"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/relic_coin","layer0":"cobblemon:item/relic_coin"}}

@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/sherds/suspicious_sherd"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/sherds/suspicious_sherd","layer0":"cobblemon:item/sherds/suspicious_sherd"}}

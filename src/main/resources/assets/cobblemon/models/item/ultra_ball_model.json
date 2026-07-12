@@ -1,1 +1,1 @@
-{"parent":"cobblemon:item/poke_ball_model","textures":{"layer0":"cobblemon:item/poke_balls/models/ultra_ball"}}
+{"parent":"cobblemon:item/poke_ball_model","textures":{"particle":"cobblemon:item/poke_balls/models/ultra_ball","layer0":"cobblemon:item/poke_balls/models/ultra_ball"}}

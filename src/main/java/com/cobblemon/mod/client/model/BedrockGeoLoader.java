@@ -50,6 +50,11 @@ public final class BedrockGeoLoader {
     }
 
     public static boolean hasMesh(Identifier geoId) {
+        // Avoid full load on every query once we know the answer
+        Boolean known = HAS_MESH.get(geoId);
+        if (known != null) {
+            return known;
+        }
         getOrLoad(geoId);
         return HAS_MESH.getOrDefault(geoId, false);
     }

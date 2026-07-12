@@ -4,14 +4,17 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import com.cobblemon.mod.species.MonElement;
 import com.cobblemon.mod.species.MonSpecies;
 import com.cobblemon.mod.species.OwnedMon;
 import com.cobblemon.mod.species.SpeciesHandle;
 import com.cobblemon.mod.species.StatBlock;
 
 /**
- * Active wild battle state for one player (server-side).
+ * Active wild / trainer battle state for one player (server-side).
  * Wild mon identity is a datapack {@link #wildSpeciesId} — never only Gen1 enum.
+ * <p>
+ * Supports optional {@link Format#DOUBLES} with a second active mon on each side (B3).
  */
 public final class BattleSession {
     public enum Phase {
@@ -21,6 +24,11 @@ public final class BattleSession {
         LOST,
         RAN,
         CAUGHT
+    }
+
+    public enum Format {
+        SINGLES,
+        DOUBLES
     }
 
     private final UUID playerId;
@@ -34,15 +42,44 @@ public final class BattleSession {
     private OwnedMon playerMon;
     private boolean playerFocus;
     private boolean enemyFocus;
-    private int playerDefBoost;
-    private int enemyDefBoost;
-    private int playerAtkDrop;
-    private int enemyAtkDrop;
+
+    /** Full −6…+6 stages for both sides. */
+    private final BattleStages playerStages = new BattleStages();
+    private final BattleStages wildStages = new BattleStages();
+    /** Weather, terrain, entry hazards. */
+    private final BattleFieldEffects field = new BattleFieldEffects();
 
     private Phase phase = Phase.PLAYER_TURN;
+    private Format format = Format.SINGLES;
     private final List<String> log = new ArrayList<>();
     private int turnCount;
     private com.cobblemon.mod.species.MonStatus wildStatus = com.cobblemon.mod.species.MonStatus.NONE;
+    /** Last move names for UI (enemy moves were easy to miss in a tiny log). */
+    private String lastPlayerMoveName = "";
+    private String lastWildMoveName = "";
+    /** Player's sent-out mon entity during this battle (in-world presentation). */
+    private UUID companionEntityId;
+    /** Optional Showdown protocol battle id (null if sim offline). */
+    private String showdownBattleId;
+    /**
+     * When true, the last turn's HP/status came from Showdown events (B1).
+     * Native calc should not re-apply damage that turn.
+     */
+    private boolean simAuthoritative;
+    /** Gym badge id awarded on win (N3); blank if none. */
+    private String rewardBadgeId = "";
+    /** B4 — opponent player UUID when this is a PvP challenge battle. */
+    private UUID pvpOpponentId;
+
+    // --- Doubles second slot (B3) ---
+    private UUID wildEntityId2;
+    private String wildSpeciesId2 = "";
+    private int wildLevel2;
+    private int wildHp2;
+    private int wildMaxHp2;
+    private int partySlot2 = -1;
+    private OwnedMon playerMon2;
+    private UUID companionEntityId2;
 
     public BattleSession(
             UUID playerId,
@@ -67,6 +104,32 @@ public final class BattleSession {
         log.add("Go, " + safeName(playerMon) + "!");
     }
 
+    /** Configure a second wild + second party mon for doubles (B3). */
+    public void enableDoubles(
+            UUID wild2Id,
+            String wild2Species,
+            int wild2Level,
+            int party2Slot,
+            OwnedMon mon2
+    ) {
+        this.format = Format.DOUBLES;
+        this.wildEntityId2 = wild2Id;
+        SpeciesHandle h = SpeciesHandle.of(wild2Species);
+        this.wildSpeciesId2 = h.id();
+        this.wildLevel2 = Math.max(1, Math.min(100, wild2Level));
+        this.wildMaxHp2 = Math.max(1, StatBlock.compute(h, this.wildLevel2,
+                com.cobblemon.mod.species.Nature.HARDY,
+                com.cobblemon.mod.species.MonForm.NORMAL).hp());
+        this.wildHp2 = wildMaxHp2;
+        this.partySlot2 = party2Slot;
+        this.playerMon2 = mon2;
+        log.add("A wild " + h.displayName().getString() + " (Lv." + this.wildLevel2 + ") joined the fray!");
+        if (mon2 != null) {
+            log.add("Go, " + safeName(mon2) + "!");
+        }
+        log.add("§bDouble battle!");
+    }
+
     public UUID playerId() {
         return playerId;
     }
@@ -75,7 +138,116 @@ public final class BattleSession {
         return wildEntityId;
     }
 
-    /** Real datapack species id (e.g. {@code sigilyph}). */
+    public UUID companionEntityId() {
+        return companionEntityId;
+    }
+
+    public void setCompanionEntityId(UUID id) {
+        this.companionEntityId = id;
+    }
+
+    public String showdownBattleId() {
+        return showdownBattleId;
+    }
+
+    public void setShowdownBattleId(String id) {
+        this.showdownBattleId = id;
+    }
+
+    public boolean isSimAuthoritative() {
+        return simAuthoritative;
+    }
+
+    public void setSimAuthoritative(boolean v) {
+        this.simAuthoritative = v;
+    }
+
+    public Format format() {
+        return format == null ? Format.SINGLES : format;
+    }
+
+    public boolean isDoubles() {
+        return format() == Format.DOUBLES;
+    }
+
+    public String rewardBadgeId() {
+        return rewardBadgeId == null ? "" : rewardBadgeId;
+    }
+
+    public void setRewardBadgeId(String id) {
+        this.rewardBadgeId = id == null ? "" : id;
+    }
+
+    public UUID pvpOpponentId() {
+        return pvpOpponentId;
+    }
+
+    public void setPvpOpponentId(UUID id) {
+        this.pvpOpponentId = id;
+    }
+
+    public boolean isPvp() {
+        return pvpOpponentId != null;
+    }
+
+    public UUID wildEntityId2() {
+        return wildEntityId2;
+    }
+
+    public String wildSpeciesId2() {
+        return wildSpeciesId2 == null ? "" : wildSpeciesId2;
+    }
+
+    public int wildHp2() {
+        return wildHp2;
+    }
+
+    public int wildMaxHp2() {
+        return wildMaxHp2;
+    }
+
+    public int wildLevel2() {
+        return wildLevel2;
+    }
+
+    public void damageWild2(int amount) {
+        wildHp2 = Math.max(0, wildHp2 - amount);
+    }
+
+    public int partySlot2() {
+        return partySlot2;
+    }
+
+    public OwnedMon playerMon2() {
+        return playerMon2;
+    }
+
+    public void setPlayerMon2(OwnedMon mon, int slot) {
+        this.playerMon2 = mon;
+        this.partySlot2 = slot;
+    }
+
+    public void setPlayerMon2Hp(int hp) {
+        if (playerMon2 != null) {
+            playerMon2 = playerMon2.withHp(hp);
+        }
+    }
+
+    public UUID companionEntityId2() {
+        return companionEntityId2;
+    }
+
+    public void setCompanionEntityId2(UUID id) {
+        this.companionEntityId2 = id;
+    }
+
+    public boolean bothWildsFainted() {
+        if (!isDoubles()) {
+            return wildHp <= 0;
+        }
+        return wildHp <= 0 && wildHp2 <= 0;
+    }
+
     public String wildSpeciesId() {
         return wildSpeciesId;
     }
@@ -84,7 +256,6 @@ public final class BattleSession {
         return SpeciesHandle.of(wildSpeciesId);
     }
 
-    /** Gen1 enum stand-in only — prefer {@link #wildSpeciesId()} for names/moves/stats. */
     public MonSpecies wildSpecies() {
         return wildHandle().asEnumOrFallback();
     }
@@ -117,16 +288,42 @@ public final class BattleSession {
         return playerMon;
     }
 
+    public BattleFieldEffects field() {
+        return field;
+    }
+
     public void setPlayerMon(OwnedMon mon, int slot) {
         this.playerMon = mon;
         this.partySlot = slot;
         this.playerFocus = false;
-        this.playerDefBoost = 0;
-        this.playerAtkDrop = 0;
+        this.playerStages.clear(); // switching resets your stages
         log.add("Go, " + safeName(mon) + "!");
+        applyEntryHazardsToPlayer();
     }
 
-    /** Replace active mon data without a switch announcement (e.g. PP spend). */
+    /** Entry hazards when the player mon switches in (not on every HP update). */
+    private void applyEntryHazardsToPlayer() {
+        if (playerMon == null) {
+            return;
+        }
+        int haz = field.onSwitchInDamage(true, playerMon.handle(), playerMon.maxHp());
+        if (haz > 0) {
+            playerMon = playerMon.withHp(Math.max(0, playerMon.hp() - haz));
+            log.add(safeName(playerMon) + " is hurt by entry hazards! (" + haz + ")");
+        }
+        int tsp = field.toxicSpikesLayers(true);
+        if (tsp > 0 && playerMon.status().isNone()
+                && playerMon.primaryType() != MonElement.POISON
+                && playerMon.secondaryType().orElse(null) != MonElement.POISON) {
+            playerMon = playerMon.withStatus(com.cobblemon.mod.species.MonStatus.POISON);
+            log.add(safeName(playerMon) + " was poisoned by Toxic Spikes!");
+        }
+        if (field.hasStickyWeb(true)) {
+            playerStages.add(StatKind.SPE, -1);
+            log.add(safeName(playerMon) + " was caught in a sticky web!");
+        }
+    }
+
     public void updatePlayerMon(OwnedMon mon) {
         if (mon != null) {
             this.playerMon = mon;
@@ -179,9 +376,25 @@ public final class BattleSession {
 
     public void addLog(String line) {
         log.add(line);
-        if (log.size() > 40) {
+        if (log.size() > 48) {
             log.remove(0);
         }
+    }
+
+    public String lastPlayerMoveName() {
+        return lastPlayerMoveName == null ? "" : lastPlayerMoveName;
+    }
+
+    public String lastWildMoveName() {
+        return lastWildMoveName == null ? "" : lastWildMoveName;
+    }
+
+    public void setLastPlayerMoveName(String name) {
+        this.lastPlayerMoveName = name == null ? "" : name;
+    }
+
+    public void setLastWildMoveName(String name) {
+        this.lastWildMoveName = name == null ? "" : name;
     }
 
     public boolean isOver() {
@@ -216,35 +429,67 @@ public final class BattleSession {
         enemyFocus = v;
     }
 
+    public BattleStages playerStages() {
+        return playerStages;
+    }
+
+    public BattleStages wildStages() {
+        return wildStages;
+    }
+
+    /**
+     * Apply boosts to a side and log. {@code toPlayer} true = player mon, false = wild.
+     * @return true if any stage actually changed
+     */
+    public boolean applyBoosts(boolean toPlayer, List<ShowdownMoveDex.StatBoost> boosts, String actorName) {
+        if (boosts == null || boosts.isEmpty()) {
+            return false;
+        }
+        BattleStages stages = toPlayer ? playerStages : wildStages;
+        boolean any = false;
+        for (ShowdownMoveDex.StatBoost b : boosts) {
+            int before = stages.get(b.getKind());
+            int after = stages.add(b.getKind(), b.getStages());
+            if (after != before) {
+                any = true;
+                String who = toPlayer ? (playerMon != null ? safeName(playerMon) : "Your mon") : ("Wild " + wildDisplayName());
+                addLog(who + "'s " + BattleStages.statName(b.getKind()) + " " + BattleStages.stageLabel(b.getStages()));
+            }
+        }
+        return any;
+    }
+
+    // --- Back-compat shims for any leftover callers ---
+
     public int playerDefBoost() {
-        return playerDefBoost;
+        return Math.max(0, playerStages.get(StatKind.DEF));
     }
 
     public void addPlayerDefBoost(int v) {
-        playerDefBoost = Math.min(3, playerDefBoost + v);
+        playerStages.add(StatKind.DEF, v);
     }
 
     public int enemyDefBoost() {
-        return enemyDefBoost;
+        return Math.max(0, wildStages.get(StatKind.DEF));
     }
 
     public void addEnemyDefBoost(int v) {
-        enemyDefBoost = Math.min(3, enemyDefBoost + v);
+        wildStages.add(StatKind.DEF, v);
     }
 
     public int playerAtkDrop() {
-        return playerAtkDrop;
+        return Math.max(0, -playerStages.get(StatKind.ATK));
     }
 
     public void addPlayerAtkDrop(int v) {
-        playerAtkDrop = Math.min(3, playerAtkDrop + v);
+        playerStages.add(StatKind.ATK, -v);
     }
 
     public int enemyAtkDrop() {
-        return enemyAtkDrop;
+        return Math.max(0, -wildStages.get(StatKind.ATK));
     }
 
     public void addEnemyAtkDrop(int v) {
-        enemyAtkDrop = Math.min(3, enemyAtkDrop + v);
+        wildStages.add(StatKind.ATK, -v);
     }
 }

@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/advancements/shiny_icon"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/advancements/shiny_icon","layer0":"cobblemon:item/advancements/shiny_icon"}}

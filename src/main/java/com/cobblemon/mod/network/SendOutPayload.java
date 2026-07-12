@@ -43,6 +43,12 @@ public record SendOutPayload() implements CustomPacketPayload {
             return;
         }
 
+        // Don't recall mid-battle — battle presentation owns the companion entity
+        if (com.cobblemon.mod.battle.BattleManager.inBattle(player)) {
+            player.sendSystemMessage(Component.literal("§7Can't recall during battle — use Run or finish the fight."));
+            return;
+        }
+
         WildMonEntity existing = findCompanion(player);
         if (existing != null) {
             existing.discard();

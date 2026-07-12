@@ -34,6 +34,17 @@ public final class ModFeatures {
     public static final DeferredHolder<Feature<?>, Feature<NoneFeatureConfiguration>> MINI_RUIN =
             FEATURES.register("mini_ruin", () -> new MiniRuinFeature(NoneFeatureConfiguration.CODEC));
 
+    /** S1 landmarks — feature-based only (no structure tags). */
+    public static final DeferredHolder<Feature<?>, Feature<NoneFeatureConfiguration>> LANDMARK_CENTER =
+            FEATURES.register("landmark_center",
+                    () -> new LandmarkFeature(NoneFeatureConfiguration.CODEC, LandmarkFeature.Kind.CENTER));
+    public static final DeferredHolder<Feature<?>, Feature<NoneFeatureConfiguration>> LANDMARK_TOWER =
+            FEATURES.register("landmark_tower",
+                    () -> new LandmarkFeature(NoneFeatureConfiguration.CODEC, LandmarkFeature.Kind.TOWER));
+    public static final DeferredHolder<Feature<?>, Feature<NoneFeatureConfiguration>> LANDMARK_DIG_SITE =
+            FEATURES.register("landmark_dig_site",
+                    () -> new LandmarkFeature(NoneFeatureConfiguration.CODEC, LandmarkFeature.Kind.DIG_SITE));
+
     /** Code-driven evo-stone veins (reliable overworld fill). */
     public static final DeferredHolder<Feature<?>, Feature<NoneFeatureConfiguration>> COBBLEMON_ORE =
             FEATURES.register("cobblemon_ore", () -> new CobblemonOreFeature(NoneFeatureConfiguration.CODEC));

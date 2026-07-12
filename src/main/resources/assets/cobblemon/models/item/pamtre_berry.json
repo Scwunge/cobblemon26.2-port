@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/berries/pamtre_berry"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/berries/pamtre_berry","layer0":"cobblemon:item/berries/pamtre_berry"}}

@@ -1,8 +1,8 @@
 {
   "variants": {
-    "facing=north": { "model": "cobblemon:block/restoration_tank", "y": 180 },
-    "facing=south": { "model": "cobblemon:block/restoration_tank" },
-    "facing=west": { "model": "cobblemon:block/restoration_tank", "y": 90 },
-    "facing=east": { "model": "cobblemon:block/restoration_tank", "y": 270 }
+    "facing=north": { "model": "cobblemon:block/restoration_tank" },
+    "facing=south": { "model": "cobblemon:block/restoration_tank", "y": 180 },
+    "facing=west": { "model": "cobblemon:block/restoration_tank", "y": 270 },
+    "facing=east": { "model": "cobblemon:block/restoration_tank", "y": 90 }
   }
 }

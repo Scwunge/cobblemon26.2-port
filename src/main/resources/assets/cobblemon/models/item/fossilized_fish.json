@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/fossils/fossilized_fish"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/fossils/fossilized_fish","layer0":"cobblemon:item/fossils/fossilized_fish"}}

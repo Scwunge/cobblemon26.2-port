@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/held_items/safety_goggles"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/held_items/safety_goggles","layer0":"cobblemon:item/held_items/safety_goggles"}}

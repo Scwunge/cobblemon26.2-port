@@ -2,7 +2,7 @@ package com.cobblemon.mod.client.screen;
 
 import java.util.List;
 
-import com.cobblemon.mod.battle.MonMove;
+import com.cobblemon.mod.battle.BattleMove;
 import com.cobblemon.mod.client.ClientBattle;
 import com.cobblemon.mod.client.MonSpriteDrawer;
 import com.cobblemon.mod.client.UiTextures;
@@ -44,8 +44,10 @@ public class BattleScreen extends Screen {
 
     private static final int INFO_W = UiTextures.BATTLE_INFO_W;
     private static final int INFO_H = UiTextures.BATTLE_INFO_H;
-    private static final int LOG_W = UiTextures.BATTLE_LOG_W;
-    private static final int LOG_H = UiTextures.BATTLE_LOG_H;
+    private static final int LOG_W = Math.max(UiTextures.BATTLE_LOG_W, 220);
+    /** Taller than native sheet so we can show foe move lines (was only 3 lines / 55px). */
+    private static final int LOG_H = 88;
+    private static final int LOG_VISIBLE = 6;
     private static final int PORTRAIT = 40;
 
     private Mode mode = Mode.MAIN;
@@ -243,12 +245,12 @@ public class BattleScreen extends Screen {
 
     @Override
     public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-        // Keep the world visible (battle is “in place”) — light dim only
+        // Fully transparent — world + battle camera stay the focus (Cobblemon-style)
         this.extractTransparentBackground(graphics);
-        graphics.fill(0, 0, this.width, this.height, 0x60081018);
-        // Soft bar behind menu (1px-wide underlay stretched)
-        int stripY = this.height - 48;
-        UiTextures.blit(graphics, UiTextures.SELECTION_UNDERLAY, 0, stripY, this.width, this.height);
+        // Soft bottom only so Fight/Catch/etc. stay readable; leave mid-screen clear
+        int stripY = this.height - 108;
+        graphics.fill(0, stripY, this.width, this.height, 0x70081018);
+        UiTextures.blit(graphics, UiTextures.SELECTION_UNDERLAY, 0, this.height - 44, this.width, this.height);
     }
 
     @Override
@@ -275,6 +277,13 @@ public class BattleScreen extends Screen {
         text.accept(wildInfoX + 28, wildInfoY + 16,
                 Component.literal("Lv." + s.wildLevel()).withStyle(ChatFormatting.DARK_GRAY));
         UiTextures.hpBar(graphics, wildInfoX + 28, wildInfoY + 28, INFO_W - 40, 5, s.wildHp(), s.wildMaxHp());
+        // Always show foe's last move under the HP bar so it isn't lost in the log
+        String foeMove = s.lastWildMove();
+        if (foeMove != null && !foeMove.isBlank()) {
+            String label = foeMove.length() > 16 ? foeMove.substring(0, 15) + "…" : foeMove;
+            text.accept(wildInfoX + 28, wildInfoY + INFO_H + 2,
+                    Component.literal("Used " + label).withStyle(ChatFormatting.YELLOW));
+        }
 
         // --- Player (bottom-left) ---
         graphics.fill(playerSpriteX - 2, playerSpriteY - 2, playerSpriteX + PORTRAIT + 2, playerSpriteY + PORTRAIT + 2, 0xA0101018);
@@ -285,14 +294,27 @@ public class BattleScreen extends Screen {
         text.accept(playerInfoX + 28, playerInfoY + 16,
                 Component.literal("Lv." + s.playerLevel()).withStyle(ChatFormatting.DARK_GRAY));
         UiTextures.hpBar(graphics, playerInfoX + 28, playerInfoY + 28, INFO_W - 40, 5, s.playerHp(), s.playerMaxHp());
+        String myMove = s.lastPlayerMove();
+        if (myMove != null && !myMove.isBlank()) {
+            String label = myMove.length() > 16 ? myMove.substring(0, 15) + "…" : myMove;
+            text.accept(playerInfoX + 28, playerInfoY + INFO_H + 2,
+                    Component.literal("Used " + label).withStyle(ChatFormatting.AQUA));
+        }
 
-        // --- Log ---
+        // --- Log (taller panel so foe "used …" lines stay visible) ---
+        graphics.fill(logX - 2, logY - 2, logX + LOG_W + 2, logY + LOG_H + 2, 0xC0101018);
         UiTextures.blitNative(graphics, UiTextures.BATTLE_LOG, logX, logY, LOG_W, LOG_H);
         List<String> lines = s.logLines();
-        int start = Math.max(0, lines.size() - 3);
+        int start = Math.max(0, lines.size() - LOG_VISIBLE);
         for (int i = start; i < lines.size(); i++) {
-            text.accept(logX + 10, logY + 10 + (i - start) * 12,
-                    Component.literal(sanitizeLog(lines.get(i))).withStyle(ChatFormatting.WHITE));
+            String raw = sanitizeLog(lines.get(i));
+            if (raw.length() > 42) {
+                raw = raw.substring(0, 41) + "…";
+            }
+            boolean foeLine = raw.regionMatches(true, 0, "Foe ", 0, 4)
+                    || raw.regionMatches(true, 0, "Wild ", 0, 5);
+            text.accept(logX + 8, logY + 6 + (i - start) * 13,
+                    Component.literal(raw).withStyle(foeLine ? ChatFormatting.GOLD : ChatFormatting.WHITE));
         }
 
         boolean canAct = "PLAYER_TURN".equals(s.phase()) && !waiting;
@@ -336,7 +358,7 @@ public class BattleScreen extends Screen {
                 // Top half idle, bottom half pressed
                 blitHalf(graphics, UiTextures.BATTLE_MOVE, bx, by, MOVE_W, MOVE_H, hover);
                 if (i < moves.size()) {
-                    MonMove m = MonMove.byIdOrDefault(moves.get(i));
+                    BattleMove m = BattleMove.resolve(moves.get(i));
                     String label = m.englishName();
                     if (label.length() > 12) {
                         label = label.substring(0, 11) + "…";
@@ -344,8 +366,8 @@ public class BattleScreen extends Screen {
                     text.accept(bx + 6, by + 4,
                             Component.literal(label).withStyle(ChatFormatting.DARK_GRAY));
                     text.accept(bx + 6, by + 14,
-                            Component.literal(m.power() + " PWR").withStyle(ChatFormatting.GRAY));
-                    UiTextures.typeIconSmall(graphics, m.element(), bx + MOVE_W - 18, by + 4, 14);
+                            Component.literal(m.getPower() + " PWR").withStyle(ChatFormatting.GRAY));
+                    UiTextures.typeIconSmall(graphics, m.getElement(), bx + MOVE_W - 18, by + 4, 14);
                 } else {
                     text.accept(bx + 8, by + 8, Component.literal("—").withStyle(ChatFormatting.DARK_GRAY));
                 }

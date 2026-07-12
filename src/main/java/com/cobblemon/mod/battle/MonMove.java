@@ -207,6 +207,7 @@ public enum MonMove implements StringRepresentable {
     }
 
     public static MonMove byIdOrDefault(String id) {
-        return byId(id).orElse(TACKLE);
+        return byId(id).orElseGet(() -> MoveAliases.resolve(id));
     }
 }
+

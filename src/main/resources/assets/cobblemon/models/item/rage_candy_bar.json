@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/food/rage_candy_bar"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/food/rage_candy_bar","layer0":"cobblemon:item/food/rage_candy_bar"}}

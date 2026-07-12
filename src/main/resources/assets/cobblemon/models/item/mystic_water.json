@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/held_items/mystic_water"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/held_items/mystic_water","layer0":"cobblemon:item/held_items/mystic_water"}}

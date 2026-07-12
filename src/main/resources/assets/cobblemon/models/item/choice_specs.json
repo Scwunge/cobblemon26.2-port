@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/held_items/choice_specs"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/held_items/choice_specs","layer0":"cobblemon:item/held_items/choice_specs"}}

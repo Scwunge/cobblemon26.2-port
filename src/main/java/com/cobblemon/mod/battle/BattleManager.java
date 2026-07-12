@@ -97,9 +97,30 @@ public final class BattleManager {
                 mon
         );
         SESSIONS.put(player.getUUID(), session);
-        // Soft-freeze wild: zero speed while battling
-        wild.getNavigation().stop();
         PartyHelper.markSeen(player, wild.getSpeciesId());
+        // In-world presentation: send out ally, park both mons, face, cry
+        try {
+            BattlePresentation.setupField(player, wild, mon, session);
+        } catch (Throwable t) {
+            // Still allow menu battle if presentation fails
+            wild.getNavigation().stop();
+            wild.setNoAi(true);
+        }
+        // Showdown protocol stream with packed teams (non-fatal if sim offline)
+        try {
+            java.util.List<String> wMoves = wildMoves(session).stream()
+                    .map(BattleMove::getId).toList();
+            String battleId = com.cobblemon.mod.battle.graal.ShowdownTurnProtocol.tryStartWildProtocolFromOwned(
+                    mon, wild.getSpeciesId(), wild.getMonLevel(), wMoves
+            );
+            if (battleId != null) {
+                session.setShowdownBattleId(battleId);
+                // B1 harden: pull start-of-battle protocol lines immediately
+                com.cobblemon.mod.battle.graal.ShowdownTurnProtocol.drainAndApply(battleId, session);
+            }
+        } catch (Throwable ignored) {
+            // native battle continues regardless
+        }
         sync(player, session);
         return true;
     }
@@ -110,13 +131,21 @@ public final class BattleManager {
             return;
         }
         s.setPhase(endPhase);
+        boolean wildAlive = endPhase != BattleSession.Phase.WON && endPhase != BattleSession.Phase.CAUGHT;
+        try {
+            BattlePresentation.teardown(player, s, wildAlive);
+        } catch (Throwable ignored) {
+        }
         sync(player, s);
         SESSIONS.remove(player.getUUID());
     }
 
     public static void forceClear(UUID playerId) {
-        SESSIONS.remove(playerId);
+        BattleSession s = SESSIONS.remove(playerId);
         GUARANTEED_CATCH.remove(playerId);
+        if (s != null) {
+            // Best-effort: no player reference — discard companion if we can find a level later
+        }
     }
 
     public static void markNextCatchGuaranteed(ServerPlayer player) {
@@ -130,15 +159,36 @@ public final class BattleManager {
         if (s == null || s.phase() != BattleSession.Phase.PLAYER_TURN) {
             return;
         }
-        List<MonMove> moves = s.playerMon().moves();
+        List<BattleMove> moves = s.playerMon().battleMoves();
         if (moveIndex < 0 || moveIndex >= moves.size()) {
             return;
         }
-        MonMove move = moves.get(moveIndex);
-        // Speed / priority: if enemy is faster, they may strike first when player didn't use priority
+        BattleMove move = moves.get(moveIndex);
+
+        // B1: when a full Showdown protocol battle is live, try sim-authoritative resolution first
+        if (trySimAuthoritativeTurn(player, s, move, moveIndex)) {
+            if (s.isOver()) {
+                finishIfNeeded(player, s);
+                return;
+            }
+            // Doubles partner auto-attack (native) after sim resolved primary pair
+            if (s.isDoubles()) {
+                runDoublesPartnerActions(player, s);
+            }
+            if (s.isOver()) {
+                finishIfNeeded(player, s);
+                return;
+            }
+            s.setPhase(BattleSession.Phase.PLAYER_TURN);
+            sync(player, s);
+            return;
+        }
+
+        // Native path (always available fallback)
+        s.setSimAuthoritative(false);
         boolean playerFirst = goesFirst(s, move);
         if (playerFirst) {
-            runPlayerMove(player, s, move);
+            runPlayerMove(player, s, move, moveIndex);
             if (s.isOver()) {
                 finishIfNeeded(player, s);
                 return;
@@ -152,10 +202,12 @@ public final class BattleManager {
                 finishIfNeeded(player, s);
                 return;
             }
-            // Only use move if player mon still up
             if (s.playerMon().hp() > 0) {
-                runPlayerMove(player, s, move);
+                runPlayerMove(player, s, move, moveIndex);
             }
+        }
+        if (s.isDoubles() && !s.isOver()) {
+            runDoublesPartnerActions(player, s);
         }
         if (s.isOver()) {
             finishIfNeeded(player, s);
@@ -165,26 +217,250 @@ public final class BattleManager {
         sync(player, s);
     }
 
+    /**
+     * B1 — run one full turn via Showdown; HP/status come from protocol events.
+     * @return true if sim handled the turn (caller must not double-apply native damage)
+     */
+    private static boolean trySimAuthoritativeTurn(
+            ServerPlayer player, BattleSession s, BattleMove playerMove, int moveIndex
+    ) {
+        if (s.showdownBattleId() == null) {
+            return false;
+        }
+        if (!com.cobblemon.mod.battle.graal.ShowdownSim.canRunProtocolBattles()) {
+            return false;
+        }
+        try {
+            // PP still spent on our side (Showdown tracks its own PP)
+            OwnedMon mon = s.playerMon();
+            if (moveIndex >= 0 && !mon.hasPp(moveIndex)) {
+                s.addLog(playerMove.englishName() + " has no PP left!");
+                persistPlayer(player, s);
+                return true; // handled as no-op turn
+            }
+            if (moveIndex >= 0) {
+                mon = mon.consumePp(moveIndex);
+                s.updatePlayerMon(mon);
+            }
+            s.setLastPlayerMoveName(playerMove.englishName());
+            s.addLog(mon.displayName().getString() + " used " + playerMove.englishName() + "!");
+            s.addLog("§8(Showdown sim resolving…)");
+
+            List<BattleMove> foeMoves = wildMoves(s);
+            int wildSlot = 0;
+            if (!foeMoves.isEmpty()) {
+                BattleMove foe = pickEnemyMove(s, foeMoves, player.level().getRandom());
+                s.setLastWildMoveName(foe.englishName());
+                wildSlot = Math.max(0, foeMoves.indexOf(foe));
+            }
+
+            int beforePlayerHp = s.playerMon().hp();
+            int beforeWildHp = s.wildHp();
+            boolean ok = com.cobblemon.mod.battle.graal.ShowdownTurnProtocol.runAuthoritativeTurn(
+                    s, moveIndex, wildSlot
+            );
+            if (!ok) {
+                s.addLog("§7Sim had no events — falling back to native damage.");
+                s.setSimAuthoritative(false);
+                return false;
+            }
+            // Hit FX if HP changed
+            if (s.playerMon().hp() != beforePlayerHp || s.wildHp() != beforeWildHp) {
+                try {
+                    BattlePresentation.playHitReaction(player, s, s.wildHp() < beforeWildHp);
+                } catch (Throwable ignored) {
+                }
+            }
+            if (s.wildHp() <= 0 && (!s.isDoubles() || s.wildHp2() <= 0)) {
+                s.setPhase(BattleSession.Phase.WON);
+                s.addLog("Wild " + s.wildDisplayName() + " fainted!");
+                removeWild(player, s);
+                applyExp(player, s, BattleCalc.expForWin(s.playerMon().level(), s.wildLevel(), s.wildHandle().stage()));
+            } else if (s.playerMon().hp() <= 0) {
+                s.addLog(s.playerMon().displayName().getString() + " fainted!");
+                persistPlayer(player, s);
+                autoSwitchOrBlackout(player, s);
+            } else {
+                persistPlayer(player, s);
+            }
+            return true;
+        } catch (Throwable t) {
+            s.setSimAuthoritative(false);
+            return false;
+        }
+    }
+
+    /** B3 — second mon + second wild act once with native calc (doubles). */
+    private static void runDoublesPartnerActions(ServerPlayer player, BattleSession s) {
+        if (!s.isDoubles() || s.isOver()) {
+            return;
+        }
+        // Partner mon attacks wild 2 (or wild 1 if wild2 already down)
+        OwnedMon partner = s.playerMon2();
+        if (partner != null && partner.hp() > 0) {
+            List<BattleMove> pMoves = partner.battleMoves();
+            if (!pMoves.isEmpty()) {
+                BattleMove m = pMoves.get(player.level().getRandom().nextInt(pMoves.size()));
+                s.addLog(partner.displayName().getString() + " used " + m.englishName() + "!");
+                boolean target2 = s.wildHp2() > 0;
+                OwnedMon wildDef = OwnedMon.createWild(
+                        target2 ? s.wildSpeciesId2() : s.wildSpeciesId(),
+                        target2 ? s.wildLevel2() : s.wildLevel(),
+                        player.level().getRandom()
+                ).withHp(target2 ? s.wildHp2() : s.wildHp()).withStatus(s.wildStatus());
+                BattleCalc.DamageResult r = BattleCalc.useMove(
+                        m, partner, wildDef, s.playerStages(), s.wildStages(),
+                        player.level().getRandom(), false, s.field()
+                );
+                if (!r.missed() && !r.immune() && r.damage() > 0) {
+                    if (target2) {
+                        s.damageWild2(r.damage());
+                        s.addLog("Dealt " + r.damage() + " to the second foe!");
+                    } else {
+                        s.damageWild(r.damage());
+                        s.addLog("Dealt " + r.damage() + " damage!");
+                    }
+                }
+            }
+        }
+        // Second wild attacks player (or partner)
+        if (s.wildHp2() > 0) {
+            List<BattleMove> foeMoves = com.cobblemon.mod.battle.DatapackLearnsets.battleMovesKnownAtLevel(
+                    s.wildSpeciesId2(), s.wildLevel2()
+            ).stream().map(bm -> BattleMove.resolve(bm.getId())).toList();
+            if (foeMoves.isEmpty()) {
+                foeMoves = List.of(BattleMove.of(MonMove.TACKLE));
+            }
+            BattleMove m = foeMoves.get(player.level().getRandom().nextInt(foeMoves.size()));
+            s.addLog("Foe " + com.cobblemon.mod.species.SpeciesHandle.of(s.wildSpeciesId2()).displayName().getString()
+                    + " used " + m.englishName() + "!");
+            OwnedMon target = (s.playerMon2() != null && s.playerMon2().hp() > 0 && player.level().getRandom().nextBoolean())
+                    ? s.playerMon2() : s.playerMon();
+            boolean hitPartner = target == s.playerMon2();
+            OwnedMon wildAtk = OwnedMon.createWild(s.wildSpeciesId2(), s.wildLevel2(), player.level().getRandom())
+                    .withHp(s.wildHp2());
+            BattleCalc.DamageResult r = BattleCalc.useMove(
+                    m, wildAtk, target, s.wildStages(), s.playerStages(),
+                    player.level().getRandom(), false, s.field()
+            );
+            if (!r.missed() && !r.immune() && r.damage() > 0) {
+                int nh = Math.max(0, target.hp() - r.damage());
+                if (hitPartner) {
+                    s.setPlayerMon2Hp(nh);
+                } else {
+                    s.setPlayerMonHp(nh);
+                }
+                s.addLog(target.displayName().getString() + " took " + r.damage() + " damage!");
+            }
+        }
+        if (s.bothWildsFainted()) {
+            s.setPhase(BattleSession.Phase.WON);
+            s.addLog("Both wild Pokémon fainted!");
+            removeWild(player, s);
+            applyExp(player, s, BattleCalc.expForWin(s.playerMon().level(), s.wildLevel(), s.wildHandle().stage()) * 2);
+        } else if (s.playerMon().hp() <= 0
+                && (s.playerMon2() == null || s.playerMon2().hp() <= 0)) {
+            s.addLog("All active Pokémon fainted…");
+            autoSwitchOrBlackout(player, s);
+        }
+        persistPlayer(player, s);
+        if (s.playerMon2() != null && s.partySlot2() >= 0) {
+            PlayerParty party = PartyHelper.get(player).copy();
+            if (s.partySlot2() < party.size()) {
+                party.set(s.partySlot2(), s.playerMon2());
+                PartyHelper.set(player, party);
+            }
+        }
+    }
+
+    /**
+     * B3 — start a double battle with two nearby wilds and two healthy party mons.
+     * @return true if doubles started
+     */
+    public static boolean tryStartDoubles(ServerPlayer player, WildMonEntity wildA, WildMonEntity wildB) {
+        if (wildA == null || wildB == null || wildA == wildB) {
+            return false;
+        }
+        if (wildA.isCompanion() || wildB.isCompanion() || wildA.isRemoved() || wildB.isRemoved()) {
+            return false;
+        }
+        if (!inEngageRange(player, wildA) || player.distanceToSqr(wildB) > MAX_ENGAGE_DISTANCE_SQR * 4) {
+            return false;
+        }
+        if (inBattle(player)) {
+            player.sendSystemMessage(Component.translatable("message.cobblemon.already_battling"));
+            return false;
+        }
+        PlayerParty party = PartyHelper.get(player);
+        int slot1 = -1, slot2 = -1;
+        OwnedMon mon1 = null, mon2 = null;
+        for (int i = 0; i < party.size(); i++) {
+            OwnedMon m = party.get(i).orElse(null);
+            if (m == null || m.isFainted()) {
+                continue;
+            }
+            if (slot1 < 0) {
+                slot1 = i;
+                mon1 = m;
+            } else if (slot2 < 0) {
+                slot2 = i;
+                mon2 = m;
+                break;
+            }
+        }
+        if (mon1 == null || mon2 == null) {
+            player.sendSystemMessage(Component.literal("§cNeed 2 healthy Pokémon for a double battle."));
+            return false;
+        }
+        BattleSession session = new BattleSession(
+                player.getUUID(), wildA.getUUID(), wildA.getSpeciesId(), wildA.getMonLevel(), slot1, mon1
+        );
+        session.enableDoubles(wildB.getUUID(), wildB.getSpeciesId(), wildB.getMonLevel(), slot2, mon2);
+        SESSIONS.put(player.getUUID(), session);
+        PartyHelper.markSeen(player, wildA.getSpeciesId());
+        PartyHelper.markSeen(player, wildB.getSpeciesId());
+        try {
+            BattlePresentation.setupField(player, wildA, mon1, session);
+            wildB.getNavigation().stop();
+            wildB.setNoAi(true);
+        } catch (Throwable ignored) {
+            wildA.setNoAi(true);
+            wildB.setNoAi(true);
+        }
+        try {
+            java.util.List<String> wMoves = wildMoves(session).stream().map(BattleMove::getId).toList();
+            String battleId = com.cobblemon.mod.battle.graal.ShowdownTurnProtocol.tryStartWildProtocolFromOwned(
+                    mon1, wildA.getSpeciesId(), wildA.getMonLevel(), wMoves
+            );
+            if (battleId != null) {
+                session.setShowdownBattleId(battleId);
+            }
+        } catch (Throwable ignored) {
+        }
+        player.sendSystemMessage(Component.literal("§bDouble battle! §7Two foes at once."));
+        sync(player, session);
+        return true;
+    }
+
     /** True if player acts before wild this turn. */
-    private static boolean goesFirst(BattleSession s, MonMove playerMove) {
-        List<MonMove> foeMoves = Learnsets.movesKnownAtLevel(s.wildSpeciesId(), s.wildLevel());
-        MonMove enemyMove = foeMoves.isEmpty() ? MonMove.TACKLE : foeMoves.get(0);
-        int pPri = playerMove.priority();
-        int ePri = enemyMove.priority();
+    private static boolean goesFirst(BattleSession s, BattleMove playerMove) {
+        List<BattleMove> foeMoves = wildMoves(s);
+        BattleMove enemyMove = foeMoves.isEmpty() ? BattleMove.of(MonMove.TACKLE) : foeMoves.get(0);
+        int pPri = playerMove.getPriority();
+        int ePri = enemyMove.getPriority();
         if (pPri != ePri) {
             return pPri > ePri;
         }
-        int pSpe = BattleCalc.speedStat(s.playerMon());
-        // wild approximate speed
-        int eSpe = BattleCalc.speedStat(
-                OwnedMon.createWild(s.wildSpeciesId(), s.wildLevel(), net.minecraft.util.RandomSource.create())
-                        .withHp(s.wildHp())
-        );
-        // Paralysis halves speed
-        if (s.playerMon().status() == com.cobblemon.mod.species.MonStatus.PARALYSIS) {
-            pSpe = Math.max(1, pSpe / 2);
-        }
+        OwnedMon wildProxy = OwnedMon.createWild(s.wildSpeciesId(), s.wildLevel(), net.minecraft.util.RandomSource.create())
+                .withHp(s.wildHp())
+                .withStatus(s.wildStatus());
+        int pSpe = BattleCalc.speedStat(s.playerMon(), s.playerStages());
+        int eSpe = BattleCalc.speedStat(wildProxy, s.wildStages());
         return pSpe >= eSpe;
+    }
+
+    private static List<BattleMove> wildMoves(BattleSession s) {
+        return DatapackLearnsets.battleMovesKnownAtLevel(s.wildSpeciesId(), s.wildLevel());
     }
 
     public static void handleSwitch(ServerPlayer player, int partySlot) {
@@ -213,6 +489,10 @@ public final class BattleManager {
         persistPlayer(player, s);
         s.setPlayerMon(next, partySlot);
         s.addLog("Go! " + next.displayName().getString() + "!");
+        try {
+            BattlePresentation.switchCompanion(player, s, next);
+        } catch (Throwable ignored) {
+        }
         // Switching loses the turn → enemy acts
         s.setPhase(BattleSession.Phase.ENEMY_TURN);
         runEnemyTurn(player, s);
@@ -278,12 +558,24 @@ public final class BattleManager {
                 + (roll.caught() ? "" : " · broke after " + roll.shakesSucceeded() + " shake(s)") + ")")
                 + "!");
         if (roll.caught()) {
-            OwnedMon caught = OwnedMon.createWild(s.wildSpeciesId(), s.wildLevel(), player.level().getRandom());
+            // Prefer wild entity identity so shiny/form/IVs from spawn are preserved
+            OwnedMon caught = null;
+            if (player.level() instanceof ServerLevel level) {
+                Entity e = level.getEntity(s.wildEntityId());
+                if (e instanceof WildMonEntity wild && !wild.isRemoved()) {
+                    caught = wild.toOwnedMon();
+                }
+            }
+            if (caught == null) {
+                caught = OwnedMon.createWild(s.wildSpeciesId(), s.wildLevel(), player.level().getRandom());
+            }
             int hp = Math.max(1, (int) (caught.maxHp() * hpRatio));
             caught = caught.withHp(hp);
             caught = CatchCalc.applyCatchEffects(caught, tier);
             if (PartyHelper.addMon(player, caught)) {
+                String shinyNote = caught.isShiny() ? " §e★Shiny!§r" : "";
                 s.addLog("Gotcha! " + caught.displayName().getString() + " was caught!"
+                        + shinyNote
                         + (guaranteed ? "" : " (" + roll.shakesSucceeded() + " shakes)"));
                 s.setPhase(BattleSession.Phase.CAUGHT);
                 removeWild(player, s);
@@ -304,10 +596,12 @@ public final class BattleManager {
         }
     }
 
-    private static void runPlayerMove(ServerPlayer player, BattleSession s, MonMove move) {
+    private static void runPlayerMove(ServerPlayer player, BattleSession s, BattleMove move, int moveIndex) {
         OwnedMon mon = s.playerMon();
-        // PP check
-        int slot = mon.moveIds().indexOf(move.id());
+        int slot = moveIndex;
+        if (slot < 0) {
+            slot = mon.moveIds().indexOf(move.getId());
+        }
         if (slot >= 0 && !mon.hasPp(slot)) {
             s.addLog(move.englishName() + " has no PP left!");
             persistPlayer(player, s);
@@ -317,23 +611,26 @@ public final class BattleManager {
             mon = mon.consumePp(slot);
             s.updatePlayerMon(mon);
         }
+        s.setLastPlayerMoveName(move.englishName());
         s.addLog(mon.displayName().getString() + " used " + move.englishName() + "!");
 
         boolean focused = s.playerFocus();
         s.setPlayerFocus(false);
 
-        // Status conditions can skip the turn
         if (mon.status().skipTurnChance() > 0f
                 && player.level().getRandom().nextFloat() < mon.status().skipTurnChance()) {
             s.addLog(mon.displayName().getString() + " is " + mon.status().english() + " and can't move!");
+            // Still tick residuals after a skipped turn
+            applyEndTurnResidual(s);
             persistPlayer(player, s);
             return;
         }
 
         OwnedMon wildMon = OwnedMon.createWild(s.wildSpeciesId(), s.wildLevel(), player.level().getRandom())
-                .withHp(s.wildHp());
+                .withHp(s.wildHp())
+                .withStatus(s.wildStatus());
         BattleCalc.DamageResult result = BattleCalc.useMove(
-                move, mon, wildMon, player.level().getRandom(), focused
+                move, mon, wildMon, s.playerStages(), s.wildStages(), player.level().getRandom(), focused, s.field()
         );
 
         if (result.missed()) {
@@ -347,44 +644,12 @@ public final class BattleManager {
             return;
         }
 
-        // Pure status moves (no damage) apply and end the action
-        if (result.status() != null && result.damage() <= 0 && result.move().isStatus()) {
-            applyStatus(s, result, true);
-            persistPlayer(player, s);
-            return;
-        }
-
-        int dmg = result.damage();
-        // atk drops / def boosts
-        if (s.playerAtkDrop() > 0) {
-            dmg = Math.max(1, (int) (dmg * (1f - 0.15f * s.playerAtkDrop())));
-        }
-        if (s.enemyDefBoost() > 0) {
-            dmg = Math.max(1, (int) (dmg * (1f - 0.12f * s.enemyDefBoost())));
-        }
-        if (dmg > 0) {
-            s.damageWild(dmg);
-            if (result.unused() > 1) {
-                s.addLog("Hit " + result.unused() + " times!");
-            }
-            if (result.critical()) {
-                s.addLog("A critical hit!");
-            }
-            s.addLog("Dealt " + dmg + " damage!");
-            String eff = TypeChart.label(result.typeMult());
-            if (!eff.isEmpty()) {
-                s.addLog(eff);
-            }
-        }
-
-        // Secondary status after damage (Showdown-style)
-        if (result.status() != null && dmg > 0) {
-            applyStatus(s, result, true);
-        }
+        applyMoveResult(player, s, result, true, player.level().getRandom(), slot);
 
         // Life Orb recoil
+        mon = s.playerMon();
         float recoil = com.cobblemon.mod.species.HeldItems.lifeOrbRecoil(mon.heldItem());
-        if (recoil > 0f && dmg > 0) {
+        if (recoil > 0f && result.damage() > 0) {
             int self = Math.max(1, Math.round(mon.maxHp() * recoil));
             s.setPlayerMonHp(Math.max(0, mon.hp() - self));
             s.addLog(mon.displayName().getString() + " is hurt by Life Orb!");
@@ -394,11 +659,24 @@ public final class BattleManager {
             s.addLog("Wild " + s.wildDisplayName() + " fainted!");
             s.setPhase(BattleSession.Phase.WON);
             removeWild(player, s);
-            applyExp(player, s, BattleCalc.expForWin(mon.level(), s.wildLevel(), s.wildHandle().stage()));
+            applyExp(player, s, BattleCalc.expForWin(s.playerMon().level(), s.wildLevel(), s.wildHandle().stage()));
             player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
                     SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.8f, 1.0f);
         } else {
-            applyEndTurnResidual(s, true);
+            applyEndTurnResidual(s);
+            if (s.wildHp() <= 0 || s.phase() == BattleSession.Phase.WON) {
+                s.setPhase(BattleSession.Phase.WON);
+                if (s.wildHp() <= 0) {
+                    // residual already logged faint
+                }
+                removeWild(player, s);
+                applyExp(player, s, BattleCalc.expForWin(s.playerMon().level(), s.wildLevel(), s.wildHandle().stage()));
+            } else if (s.playerMon().hp() <= 0 && !s.isOver()) {
+                // Recoil / residual can faint the player mon after their own attack
+                s.addLog(s.playerMon().displayName().getString() + " fainted!");
+                persistPlayer(player, s);
+                autoSwitchOrBlackout(player, s);
+            }
         }
         persistPlayer(player, s);
     }
@@ -407,221 +685,298 @@ public final class BattleManager {
         if (s.wildHp() <= 0) {
             return;
         }
-        s.bumpTurn();
-        List<MonMove> foeMoves = Learnsets.movesKnownAtLevel(s.wildSpeciesId(), s.wildLevel());
-        if (foeMoves.isEmpty()) {
-            foeMoves = List.of(MonMove.TACKLE);
+        // Skip if wild status locks them
+        if (s.wildStatus().skipTurnChance() > 0f
+                && player.level().getRandom().nextFloat() < s.wildStatus().skipTurnChance()) {
+            s.addLog("Wild " + s.wildDisplayName() + " is " + s.wildStatus().english() + " and can't move!");
+            applyEndTurnResidual(s);
+            persistPlayer(player, s);
+            return;
         }
-        MonMove move = pickEnemyMove(s, foeMoves, player.level().getRandom());
-        s.addLog("Wild " + s.wildDisplayName() + " used " + move.englishName() + "!");
+
+        s.bumpTurn();
+        List<BattleMove> foeMoves = wildMoves(s);
+        if (foeMoves.isEmpty()) {
+            foeMoves = List.of(BattleMove.of(MonMove.TACKLE));
+        }
+        BattleMove move = pickEnemyMove(s, foeMoves, player.level().getRandom());
+        s.setLastWildMoveName(move.englishName());
+        s.addLog("Foe " + s.wildDisplayName() + " used " + move.englishName() + "!");
 
         boolean focused = s.enemyFocus();
         s.setEnemyFocus(false);
 
         OwnedMon mon = s.playerMon();
         OwnedMon wildAtk = OwnedMon.createWild(s.wildSpeciesId(), s.wildLevel(), player.level().getRandom())
-                .withHp(s.wildHp());
+                .withHp(s.wildHp())
+                .withStatus(s.wildStatus());
         BattleCalc.DamageResult result = BattleCalc.useMove(
-                move, wildAtk, mon, player.level().getRandom(), focused
+                move, wildAtk, mon, s.wildStages(), s.playerStages(), player.level().getRandom(), focused, s.field()
         );
 
         if (result.missed()) {
             s.addLog("It missed!");
-            applyEndTurnResidual(s, false);
+            applyEndTurnResidual(s);
+            persistPlayer(player, s);
             return;
         }
         if (result.immune()) {
             s.addLog("It had no effect…");
-            applyEndTurnResidual(s, false);
-            return;
-        }
-        if (result.status() != null && result.damage() <= 0 && result.move().isStatus()) {
-            applyStatus(s, result, false);
-            applyPrimaryStatusFromMove(s, move, false);
+            applyEndTurnResidual(s);
             persistPlayer(player, s);
-            applyEndTurnResidual(s, false);
             return;
         }
 
-        int dmg = result.damage();
-        if (s.enemyAtkDrop() > 0) {
-            dmg = Math.max(1, (int) (dmg * (1f - 0.15f * s.enemyAtkDrop())));
-        }
-        if (s.playerDefBoost() > 0) {
-            dmg = Math.max(1, (int) (dmg * (1f - 0.12f * s.playerDefBoost())));
-        }
-        int newHp = mon.hp();
-        if (dmg > 0) {
-            newHp = Math.max(0, mon.hp() - dmg);
-            s.setPlayerMonHp(newHp);
-            if (result.unused() > 1) {
-                s.addLog("Hit " + result.unused() + " times!");
+        applyMoveResult(player, s, result, false, player.level().getRandom(), -1);
+        applyEndTurnResidual(s);
+
+        // Foe can faint to residual burn/poison after their own turn
+        if (s.phase() == BattleSession.Phase.WON || s.wildHp() <= 0) {
+            if (!s.isOver() || s.phase() == BattleSession.Phase.WON) {
+                s.setPhase(BattleSession.Phase.WON);
+                s.addLog("Wild " + s.wildDisplayName() + " fainted!");
+                removeWild(player, s);
+                applyExp(player, s, BattleCalc.expForWin(s.playerMon().level(), s.wildLevel(), s.wildHandle().stage()));
             }
-            if (result.critical()) {
-                s.addLog("A critical hit!");
-            }
-            s.addLog(mon.displayName().getString() + " took " + dmg + " damage!");
-            String eff = TypeChart.label(result.typeMult());
-            if (!eff.isEmpty()) {
-                s.addLog(eff);
-            }
-        }
-        if (result.status() != null && dmg > 0) {
-            applyStatus(s, result, false);
+            return;
         }
 
-        applyEndTurnResidual(s, false);
-
+        int newHp = s.playerMon().hp();
         if (newHp <= 0) {
             s.addLog(mon.displayName().getString() + " fainted!");
             persistPlayer(player, s);
-            // Try next mon
-            PlayerParty party = PartyHelper.get(player);
-            int next = -1;
-            for (int i = 0; i < party.size(); i++) {
-                if (i == s.partySlot()) {
-                    continue;
-                }
-                OwnedMon m = party.get(i).orElseThrow();
-                if (!m.isFainted()) {
-                    next = i;
-                    break;
-                }
-            }
-            if (next < 0) {
-                s.addLog("All Cobblemon fainted…");
-                s.setPhase(BattleSession.Phase.LOST);
-                handleBlackout(player, s);
-            } else {
-                OwnedMon nextMon = party.get(next).orElseThrow();
-                s.setPlayerMon(nextMon, next);
-            }
+            autoSwitchOrBlackout(player, s);
         } else {
             persistPlayer(player, s);
         }
     }
 
-    private static void applyStatus(BattleSession s, BattleCalc.DamageResult result, boolean playerUsed) {
-        switch (result.status()) {
-            case HEAL_SELF -> {
-                if (playerUsed) {
-                    int heal = Math.max(1, s.playerMon().maxHp() / 4);
-                    s.setPlayerMonHp(Math.min(s.playerMon().maxHp(), s.playerMon().hp() + heal));
-                    s.addLog(s.playerMon().displayName().getString() + " recovered HP!");
-                } else {
-                    s.healWild(Math.max(1, s.wildMaxHp() / 4));
-                    s.addLog("Wild mon recovered HP!");
-                }
+    /**
+     * After the active mon faints: send out the next healthy party member
+     * (with a visible world-entity swap), or blackout if none remain.
+     */
+    private static void autoSwitchOrBlackout(ServerPlayer player, BattleSession s) {
+        PlayerParty party = PartyHelper.get(player);
+        int next = -1;
+        for (int i = 0; i < party.size(); i++) {
+            if (i == s.partySlot()) {
+                continue;
             }
-            case DEF_UP -> {
-                if (playerUsed) {
-                    s.addPlayerDefBoost(1);
-                    s.addLog(s.playerMon().displayName().getString() + "'s Defense rose!");
-                } else {
-                    s.addEnemyDefBoost(1);
-                    s.addLog("Foe's Defense rose!");
-                }
+            OwnedMon m = party.get(i).orElse(null);
+            if (m != null && !m.isFainted()) {
+                next = i;
+                break;
             }
-            case FOCUS -> {
-                if (playerUsed) {
-                    s.setPlayerFocus(true);
-                    s.addLog(s.playerMon().displayName().getString() + " is focusing!");
-                } else {
-                    s.setEnemyFocus(true);
-                    s.addLog("Foe is focusing!");
-                }
+        }
+        if (next < 0) {
+            s.addLog("All Cobblemon fainted…");
+            s.setPhase(BattleSession.Phase.LOST);
+            handleBlackout(player, s);
+            return;
+        }
+        OwnedMon nextMon = party.get(next).orElseThrow();
+        s.setPlayerMon(nextMon, next);
+        s.addLog("Go! " + nextMon.displayName().getString() + "!");
+        try {
+            BattlePresentation.faintAndSwitch(player, s, nextMon);
+        } catch (Throwable t) {
+            try {
+                BattlePresentation.switchCompanion(player, s, nextMon);
+            } catch (Throwable ignored) {
             }
-            case ATK_DOWN -> {
-                if (playerUsed) {
-                    s.addEnemyAtkDrop(1);
-                    s.addLog("Foe's Attack fell!");
-                } else {
-                    s.addPlayerAtkDrop(1);
-                    s.addLog(s.playerMon().displayName().getString() + "'s Attack fell!");
-                }
-            }
-            case BURN, POISON, PARALYZE, SLEEP, FREEZE -> {
-                // Primary status only applies to the defender of the move
-                com.cobblemon.mod.species.MonStatus st = switch (result.status()) {
-                    case BURN -> com.cobblemon.mod.species.MonStatus.BURN;
-                    case POISON -> com.cobblemon.mod.species.MonStatus.POISON;
-                    case PARALYZE -> com.cobblemon.mod.species.MonStatus.PARALYSIS;
-                    case SLEEP -> com.cobblemon.mod.species.MonStatus.SLEEP;
-                    case FREEZE -> com.cobblemon.mod.species.MonStatus.FREEZE;
-                    default -> com.cobblemon.mod.species.MonStatus.NONE;
-                };
-                if (st.isNone()) {
-                    break;
-                }
-                if (playerUsed) {
-                    if (s.wildStatus().isNone()) {
-                        s.setWildStatus(st);
-                        s.addLog("Wild " + s.wildDisplayName() + " was " + st.english() + "!");
+        }
+    }
+
+    /**
+     * Apply damage, self/target boosts, secondary status, drain heals.
+     * @param playerUsed true if the player used the move (attacker = player)
+     * @param playerMoveIndex 0-based party move slot when playerUsed, else -1
+     */
+    private static void applyMoveResult(
+            ServerPlayer player,
+            BattleSession s,
+            BattleCalc.DamageResult result,
+            boolean playerUsed,
+            net.minecraft.util.RandomSource random,
+            int playerMoveIndex
+    ) {
+        // Self boosts always (Swords Dance etc.)
+        if (result.selfBoosts() != null && !result.selfBoosts().isEmpty()) {
+            s.applyBoosts(playerUsed, result.selfBoosts(), null);
+            // Focus energy-style: treat pure ATK+ as focus for crit help
+            if (playerUsed && result.move().isStatus()) {
+                for (var b : result.selfBoosts()) {
+                    if (b.getKind() == StatKind.ATK && b.getStages() > 0) {
+                        s.setPlayerFocus(true);
+                        break;
                     }
-                } else if (s.playerMon().status().isNone()) {
-                    s.setPlayerMon(s.playerMon().withStatus(st), s.partySlot());
-                    s.addLog(s.playerMon().displayName().getString() + " was " + st.english() + "!");
                 }
             }
-            case null, default -> {
+        }
+
+        int dmg = result.damage();
+        if (dmg > 0) {
+            if (playerUsed) {
+                s.damageWild(dmg);
+                if (result.hits() > 1) {
+                    s.addLog("Hit " + result.hits() + " times!");
+                }
+                if (result.critical()) {
+                    s.addLog("A critical hit!");
+                }
+                s.addLog("Dealt " + dmg + " damage!");
+            } else {
+                int newHp = Math.max(0, s.playerMon().hp() - dmg);
+                s.setPlayerMonHp(newHp);
+                if (result.hits() > 1) {
+                    s.addLog("Hit " + result.hits() + " times!");
+                }
+                if (result.critical()) {
+                    s.addLog("A critical hit!");
+                }
+                s.addLog(s.playerMon().displayName().getString() + " took " + dmg + " damage!");
+            }
+            String eff = TypeChart.label(result.typeMult());
+            if (!eff.isEmpty()) {
+                s.addLog(eff);
+            }
+        }
+        // C3/C4 — type particles + SFX (always; hit reaction included when damaging)
+        try {
+            var el = result.move() != null ? result.move().getElement() : com.cobblemon.mod.species.MonElement.NORMAL;
+            String mid = result.move() != null ? result.move().getId() : "";
+            BattlePresentation.playMoveEffects(player, s, playerUsed, mid, el, dmg > 0);
+        } catch (Throwable ignored) {
+            if (dmg > 0) {
+                try {
+                    BattlePresentation.playHitReaction(player, s, playerUsed);
+                } catch (Throwable ignored2) {
+                }
+            }
+        }
+
+        // Status-move heal (drainHeal == -1 means 25% max)
+        if (result.drainHeal() == -1) {
+            if (playerUsed) {
+                int heal = Math.max(1, s.playerMon().maxHp() / 4);
+                s.setPlayerMonHp(Math.min(s.playerMon().maxHp(), s.playerMon().hp() + heal));
+                s.addLog(s.playerMon().displayName().getString() + " recovered HP!");
+            } else {
+                s.healWild(Math.max(1, s.wildMaxHp() / 4));
+                s.addLog("Wild " + s.wildDisplayName() + " recovered HP!");
+            }
+        } else if (result.drainHeal() > 0 && dmg > 0) {
+            if (playerUsed) {
+                s.setPlayerMonHp(Math.min(s.playerMon().maxHp(), s.playerMon().hp() + result.drainHeal()));
+                s.addLog(s.playerMon().displayName().getString() + " drained " + result.drainHeal() + " HP!");
+            } else {
+                s.healWild(result.drainHeal());
+                s.addLog("Wild " + s.wildDisplayName() + " drained HP!");
+            }
+        }
+
+        // Target boosts (already chance-rolled in BattleCalc)
+        if (result.targetBoosts() != null && !result.targetBoosts().isEmpty()) {
+            s.applyBoosts(!playerUsed, result.targetBoosts(), null);
+        }
+
+        // Primary / secondary status on defender
+        if (result.inflictStatus() != null && !result.inflictStatus().isNone()) {
+            if (playerUsed) {
+                if (s.wildStatus().isNone()) {
+                    s.setWildStatus(result.inflictStatus());
+                    s.addLog("Wild " + s.wildDisplayName() + " was " + result.inflictStatus().english() + "!");
+                }
+            } else if (s.playerMon().status().isNone()) {
+                // updatePlayerMon — not setPlayerMon (would re-apply entry hazards)
+                s.updatePlayerMon(s.playerMon().withStatus(result.inflictStatus()));
+                s.addLog(s.playerMon().displayName().getString() + " was " + result.inflictStatus().english() + "!");
+            }
+        }
+
+        // Field effects (weather / terrain / hazards) from status-style moves
+        if (result.move() != null && result.move().isStatus()) {
+            String fieldLog = s.field().applyFieldMove(result.move().getId(), playerUsed);
+            if (fieldLog != null) {
+                s.addLog(fieldLog);
             }
         }
     }
 
-    /** Leftovers / berries / burn / poison residual on the player mon. */
-    private static void applyEndTurnResidual(BattleSession s, boolean afterPlayerMove) {
+    /**
+     * End-of-turn residuals for BOTH sides: burn/poison, leftovers on player,
+     * weather/terrain residual, field duration ticks.
+     * Called once after a full turn exchange (or after a skipped move).
+     */
+    private static void applyEndTurnResidual(BattleSession s) {
+        // Weather / terrain residual + duration
+        try {
+            int pField = s.field().residualDamage(true, s.playerMon(), s.wildSpeciesId(), s.wildMaxHp(), s.wildHp());
+            if (pField > 0 && s.playerMon() != null && !s.playerMon().isFainted()) {
+                s.setPlayerMonHp(Math.max(0, s.playerMon().hp() - pField));
+                s.addLog(s.playerMon().displayName().getString() + " is buffeted by the weather!");
+            } else if (pField < 0 && s.playerMon() != null && !s.playerMon().isFainted()) {
+                s.setPlayerMonHp(Math.min(s.playerMon().maxHp(), s.playerMon().hp() - pField));
+                s.addLog(s.playerMon().displayName().getString() + " restored HP from the terrain!");
+            }
+            int wField = s.field().residualDamage(false, s.playerMon(), s.wildSpeciesId(), s.wildMaxHp(), s.wildHp());
+            if (wField > 0 && s.wildHp() > 0) {
+                s.damageWild(wField);
+                s.addLog("Wild " + s.wildDisplayName() + " is buffeted by the weather!");
+            } else if (wField < 0 && s.wildHp() > 0) {
+                s.healWild(-wField);
+                s.addLog("Wild " + s.wildDisplayName() + " restored HP from the terrain!");
+            }
+            for (String line : s.field().endTurnTick()) {
+                s.addLog(line);
+            }
+        } catch (Throwable ignored) {
+        }
+
+        // Player side
         OwnedMon mon = s.playerMon();
-        if (mon == null || mon.isFainted()) {
-            return;
-        }
-        // Held berry auto-use (pinch / status / leppa)
-        BattleBerry.Result berry = BattleBerry.tryConsume(mon);
-        if (berry.consumed()) {
-            s.setPlayerMon(berry.mon(), s.partySlot());
-            if (berry.message() != null) {
-                s.addLog(berry.message());
+        if (mon != null && !mon.isFainted()) {
+            BattleBerry.Result berry = BattleBerry.tryConsume(mon);
+            if (berry.consumed()) {
+                s.setPlayerMon(berry.mon(), s.partySlot());
+                if (berry.message() != null) {
+                    s.addLog(berry.message());
+                }
+                mon = s.playerMon();
             }
-            mon = s.playerMon();
-            persistPlayerFromSession(s);
+            float hold = com.cobblemon.mod.species.HeldItems.residualHealFraction(mon.heldItem(), mon.primaryType());
+            if (hold > 0f) {
+                int heal = Math.max(1, Math.round(mon.maxHp() * hold));
+                s.setPlayerMonHp(Math.min(mon.maxHp(), mon.hp() + heal));
+                s.addLog(mon.displayName().getString() + " restored HP with its held item!");
+            } else if (hold < 0f) {
+                int dmg = Math.max(1, Math.round(mon.maxHp() * -hold));
+                s.setPlayerMonHp(Math.max(0, mon.hp() - dmg));
+                s.addLog(mon.displayName().getString() + " is hurt by Black Sludge!");
+            }
+            float statusFrac = mon.status().residualFraction();
+            if (statusFrac > 0f && mon.hp() > 0) {
+                int dmg = Math.max(1, Math.round(mon.maxHp() * statusFrac));
+                s.setPlayerMonHp(Math.max(0, mon.hp() - dmg));
+                s.addLog(mon.displayName().getString() + " is hurt by " + mon.status().english() + "!");
+            }
         }
-        mon = s.playerMon();
-        float hold = com.cobblemon.mod.species.HeldItems.residualHealFraction(mon.heldItem(), mon.primaryType());
-        if (hold > 0f) {
-            int heal = Math.max(1, Math.round(mon.maxHp() * hold));
-            s.setPlayerMonHp(Math.min(mon.maxHp(), mon.hp() + heal));
-            s.addLog(mon.displayName().getString() + " restored HP with its held item!");
-        } else if (hold < 0f) {
-            int dmg = Math.max(1, Math.round(mon.maxHp() * -hold));
-            s.setPlayerMonHp(Math.max(0, mon.hp() - dmg));
-            s.addLog(mon.displayName().getString() + " is hurt by Black Sludge!");
-        }
-        float statusFrac = mon.status().residualFraction();
-        if (statusFrac > 0f && mon.hp() > 0) {
-            int dmg = Math.max(1, Math.round(mon.maxHp() * statusFrac));
-            s.setPlayerMonHp(Math.max(0, mon.hp() - dmg));
-            s.addLog(mon.displayName().getString() + " is hurt by " + mon.status().english() + "!");
-        }
-    }
 
-    private static void persistPlayerFromSession(BattleSession s) {
-        // Soft mark — full persist happens via persistPlayer(player, s) at action ends
-    }
-
-    private static void applyPrimaryStatusFromMove(BattleSession s, MonMove move, boolean playerUsed) {
-        if (playerUsed || !s.playerMon().status().isNone() || !move.isStatus()) {
-            return;
-        }
-        com.cobblemon.mod.species.MonStatus st = switch (move.element()) {
-            case ELECTRIC -> com.cobblemon.mod.species.MonStatus.PARALYSIS;
-            case POISON -> com.cobblemon.mod.species.MonStatus.POISON;
-            case FIRE -> com.cobblemon.mod.species.MonStatus.BURN;
-            case ICE -> com.cobblemon.mod.species.MonStatus.FREEZE;
-            case PSYCHIC, GRASS -> com.cobblemon.mod.species.MonStatus.SLEEP;
-            default -> com.cobblemon.mod.species.MonStatus.NONE;
-        };
-        if (!st.isNone()) {
-            s.setPlayerMon(s.playerMon().withStatus(st), s.partySlot());
-            s.addLog(s.playerMon().displayName().getString() + " was " + st.english() + "!");
+        // Wild side — burn / poison residual
+        if (s.wildHp() > 0) {
+            float wFrac = s.wildStatus().residualFraction();
+            if (wFrac > 0f) {
+                int dmg = Math.max(1, Math.round(s.wildMaxHp() * wFrac));
+                s.damageWild(dmg);
+                s.addLog("Wild " + s.wildDisplayName() + " is hurt by " + s.wildStatus().english() + "!");
+                if (s.wildHp() <= 0) {
+                    s.addLog("Wild " + s.wildDisplayName() + " fainted!");
+                    // Mark win; caller may still need to award exp — set phase if not already over
+                    if (!s.isOver()) {
+                        s.setPhase(BattleSession.Phase.WON);
+                    }
+                }
+            }
         }
     }
 
@@ -683,67 +1038,47 @@ public final class BattleManager {
     }
 
     /**
-     * Blackout: soft-heal party to 1 HP each, clear status/PP partially, and warp to
-     * bed / world spawn (Pokémon-style "returned to safety").
+     * Blackout (intentional design): soft-heal party to 1 HP each, clear status,
+     * restore a little PP — <b>player stays in place</b> (no bed/spawn teleport).
+     * See README “Blackout behaviour”.
      */
     private static void handleBlackout(ServerPlayer player, BattleSession s) {
         persistPlayer(player, s);
+        try {
+            BattlePresentation.teardown(player, s, true);
+        } catch (Throwable ignored) {
+        }
         PlayerParty party = PartyHelper.get(player).copy();
         for (int i = 0; i < party.size(); i++) {
             OwnedMon m = party.get(i).orElse(null);
             if (m == null) {
                 continue;
             }
-            // 1 HP, cured, some PP restored — not free full heal
+            // 1 HP, cured, some PP restored — not free full heal; no world teleport
             OwnedMon next = m.withHp(1).withStatus(com.cobblemon.mod.species.MonStatus.NONE).restorePp(-1, 5);
             party.set(i, next);
         }
         PartyHelper.set(player, party);
-
-        // Warp to bed / respawn anchor if set, else world spawn
-        try {
-            var transition = player.findRespawnPositionAndUseSpawnBlock(
-                    false,
-                    net.minecraft.world.level.portal.TeleportTransition.DO_NOTHING
-            );
-            if (transition != null) {
-                player.teleport(transition);
-                player.sendSystemMessage(Component.literal(
-                        "§cBlacked out! §7You scurried back to safety. Your team was restored to 1 HP."));
-            } else if (player.level() instanceof ServerLevel sl) {
-                var spawn = sl.getRespawnData().pos();
-                player.teleportTo(sl, spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5,
-                        java.util.Set.of(), player.getYRot(), player.getXRot(), false);
-                player.sendSystemMessage(Component.literal(
-                        "§cBlacked out! §7You woke up at world spawn. Your team was restored to 1 HP."));
-            }
-        } catch (Exception ex) {
-            if (player.level() instanceof ServerLevel sl) {
-                var spawn = sl.getRespawnData().pos();
-                player.teleportTo(sl, spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5,
-                        java.util.Set.of(), player.getYRot(), player.getXRot(), false);
-            }
-            player.sendSystemMessage(Component.literal(
-                    "§cBlacked out! §7Your team was restored to 1 HP."));
-        }
+        player.sendSystemMessage(Component.translatable("message.cobblemon.blackout"));
         player.level().playSound(null, player.blockPosition(), SoundEvents.PLAYER_HURT, SoundSource.PLAYERS, 0.8f, 0.6f);
     }
 
     /**
      * Smarter wild AI: prefer super-effective attacks, heal when low, status when healthy.
      */
-    private static MonMove pickEnemyMove(BattleSession s, List<MonMove> moves, net.minecraft.util.RandomSource random) {
+    private static BattleMove pickEnemyMove(BattleSession s, List<BattleMove> moves, net.minecraft.util.RandomSource random) {
         if (moves.size() == 1) {
             return moves.get(0);
         }
         OwnedMon player = s.playerMon();
         float wildHp = s.wildHpRatio();
-        MonMove best = moves.get(0);
+        BattleMove best = moves.get(0);
         float bestScore = -1f;
-        for (MonMove m : moves) {
+        for (BattleMove m : moves) {
             float score = 1f + random.nextFloat() * 0.4f;
             if (m.isStatus()) {
-                if (m == MonMove.REST_SOFT && wildHp < 0.4f) {
+                String mid = ShowdownMoveDex.canonicalize(m.getId());
+                if ((mid.contains("rest") || mid.contains("recover") || mid.contains("synthesis")) && wildHp < 0.4f) {
                     score += 4f;
                 } else if (wildHp > 0.55f) {
                     score += 1.2f;
@@ -751,13 +1086,13 @@ public final class BattleManager {
                     score -= 0.5f;
                 }
             } else {
-                float mult = TypeChart.multiplier(m.element(), player.primaryType());
+                float mult = TypeChart.multiplier(m.getElement(), player.primaryType());
                 if (player.secondaryType().isPresent()) {
-                    mult *= TypeChart.multiplier(m.element(), player.secondaryType().get());
+                    mult *= TypeChart.multiplier(m.getElement(), player.secondaryType().get());
                 }
                 score += mult * 2.5f;
-                score += m.power() / 50f;
-                if (m.priority() > 0 && player.hpRatio() < 0.25f) {
+                score += m.getPower() / 50f;
+                if (m.getPriority() > 0 && player.hpRatio() < 0.25f) {
                     score += 1.5f;
                 }
             }
@@ -792,17 +1127,65 @@ public final class BattleManager {
         if (e != null) {
             e.discard();
         }
+        if (s.wildEntityId2() != null) {
+            Entity e2 = level.getEntity(s.wildEntityId2());
+            if (e2 != null) {
+                e2.discard();
+            }
+        }
     }
 
     private static void finishIfNeeded(ServerPlayer player, BattleSession s) {
+        if (s.isOver()) {
+            boolean wildAlive = s.phase() != BattleSession.Phase.WON && s.phase() != BattleSession.Phase.CAUGHT;
+            try {
+                BattlePresentation.teardown(player, s, wildAlive);
+            } catch (Throwable ignored) {
+            }
+            // N3 — award gym badge on win when session carries a reward id
+            if (s.phase() == BattleSession.Phase.WON
+                    && s.rewardBadgeId() != null
+                    && !s.rewardBadgeId().isBlank()) {
+                try {
+                    if (com.cobblemon.mod.party.PlayerBadges.award(player, s.rewardBadgeId())) {
+                        player.sendSystemMessage(Component.translatable(
+                                "message.cobblemon.badge_earned",
+                                com.cobblemon.mod.party.PlayerBadges.displayName(s.rewardBadgeId())
+                        ));
+                        player.level().playSound(null, player.blockPosition(),
+                                SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.9f, 1.0f);
+                    }
+                } catch (Throwable ignored) {
+                }
+            }
+        }
         sync(player, s);
         if (s.isOver()) {
+            // B4 — sync PvP HP to opponent
+            try {
+                PvpChallengeManager.onBattleEnd(player, s);
+            } catch (Throwable ignored) {
+            }
+            // Close Showdown stream if open
+            try {
+                if (s.showdownBattleId() != null) {
+                    com.cobblemon.mod.battle.graal.ShowdownSim.endBattle(s.showdownBattleId());
+                }
+            } catch (Throwable ignored) {
+            }
             SESSIONS.remove(player.getUUID());
+            PvpChallengeManager.clear(player.getUUID());
         }
     }
 
     public static void sync(ServerPlayer player, BattleSession s) {
-        List<String> moveIds = s.playerMon().moves().stream().map(MonMove::id).toList();
+        if (!s.isOver()) {
+            try {
+                BattlePresentation.holdField(player, s);
+            } catch (Throwable ignored) {
+            }
+        }
+        List<String> moveIds = s.playerMon().moveIds();
         PacketDistributor.sendToPlayer(player, new BattleUpdatePayload(
                 s.phase().name(),
                 s.playerMon().speciesId(),
@@ -815,8 +1198,10 @@ public final class BattleManager {
                 s.wildHp(),
                 s.wildMaxHp(),
                 moveIds,
-                s.recentLog(8),
-                s.isOver()
+                s.recentLog(16),
+                s.isOver(),
+                s.lastPlayerMoveName(),
+                s.lastWildMoveName()
         ));
     }
 }

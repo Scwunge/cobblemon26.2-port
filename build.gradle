@@ -3,6 +3,8 @@ plugins {
     id 'maven-publish'
     id 'net.neoforged.moddev' version '2.0.141'
     id 'idea'
+    // Kotlin coexists with Java; bytecode target 24 (runs on Java 25 runtime used by MC 26.2)
+    id 'org.jetbrains.kotlin.jvm' version '2.2.20'
 }
 
 tasks.named('wrapper', Wrapper).configure {
@@ -34,8 +36,25 @@ base {
     archivesName = mod_id
 }
 
-// Mojang ships Java 25 to end users in 26.2, so mods should target Java 25.
+// Mojang ships Java 25 to end users in 26.2 — NeoForge artifacts require Java 25 attributes.
 java.toolchain.languageVersion = JavaLanguageVersion.of(25)
+
+// Kotlin shares the same source set / toolchain as Java.
+// Kotlin compiler reads sibling Java sources (no need for precompiled Java classes).
+// Java compile then consumes Kotlin class output (plugin wires compileJava -> compileKotlin).
+// Do NOT add mutual classpath dependsOn — that creates a circular task graph.
+kotlin {
+    jvmToolchain(25)
+}
+
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+    compilerOptions {
+        // Kotlin 2.2 max official jvmTarget is 24; class files still run on Java 25.
+        // Java stays at 25 for NeoForge variant matching (see gradle.properties validation mode).
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_24)
+        freeCompilerArgs.add('-Xjvm-default=all')
+    }
+}
 
 neoForge {
     // Specify the version of NeoForge to use.
@@ -91,6 +110,11 @@ neoForge {
             // You can set various levels here.
             // Please read: https://stackoverflow.com/questions/2031163/when-to-use-the-different-log-levels
             logLevel = org.slf4j.event.Level.DEBUG
+
+            // GraalVM polyglot on OpenJDK 25: quiet interpreter-only warning; allow Truffle native access
+            systemProperty 'polyglot.engine.WarnInterpreterOnly', 'false'
+            jvmArgument '-XX:+EnableDynamicAgentLoading'
+            jvmArgument '--enable-native-access=ALL-UNNAMED'
         }
     }
 
@@ -112,28 +136,59 @@ configurations {
     runtimeClasspath.extendsFrom localRuntime
 }
 
+// GraalVM JS spike — Showdown battles (Java 25 / OpenJDK). Set false if deps break resolution.
+// Research: org.graalvm.polyglot 25.0.x / 25.1.x ship for JDK 25; official Cobblemon pinned 22.3.0 + Java 21.
+ext.graalSpikeEnabled = true
+ext.graalVersion = '25.1.3'
+
 dependencies {
-    // Example optional mod dependency with JEI
-    // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime
-    // compileOnly "mezz.jei:jei-${mc_version}-common-api:${jei_version}"
-    // compileOnly "mezz.jei:jei-${mc_version}-neoforge-api:${jei_version}"
-    // We add the full version to localRuntime, not runtimeOnly, so that we do not publish a dependency on it
-    // localRuntime "mezz.jei:jei-${mc_version}-neoforge:${jei_version}"
+    // Kotlin stdlib (plugin also brings it). Pin version to match kotlin.jvm plugin.
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:2.2.20"
+    // Bundle stdlib into the mod jar so production clients don't need a separate Kotlin mod.
+    jarJar(group: 'org.jetbrains.kotlin', name: 'kotlin-stdlib', version: '[2.0,3.0)') {
+        version {
+            prefer '2.2.20'
+        }
+    }
 
-    // Example mod dependency using a mod jar from ./libs with a flat dir repository
-    // This maps to ./libs/coolmod-${mc_version}-${coolmod_version}.jar
-    // The group id is ignored when searching -- in this case, it is "blank"
-    // implementation "blank:coolmod-${mc_version}:${coolmod_version}"
-
-    // Example mod dependency using a file as dependency
-    // implementation files("libs/coolmod-${mc_version}-${coolmod_version}.jar")
-
-    // Example project dependency using a sister or child project:
-    // implementation project(":myproject")
-
-    // For more info:
-    // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
-    // http://www.gradle.org/docs/current/userguide/dependency_management.html
+    // --- GraalVM polyglot + JS (Showdown runner v0 + spike) ---
+    // On OpenJDK/Oracle JDK 25: works in interpreter-only (fallback) without Graal compiler;
+    // optimizing runtime needs GraalVM JDK or --upgrade-module-path + JVMCI.
+    //
+    // NOTE: org.graalvm.polyglot:js is packaging=pom. Plain `implementation "...:js:ver"` is
+    // resolved by Gradle as an empty jar library and **does not** pull js-language/truffle.
+    // Use @pom (Maven type=pom) plus explicit runtime language jars so Context.eval("js") works.
+    if (graalSpikeEnabled) {
+        implementation "org.graalvm.polyglot:polyglot:${graalVersion}"
+        // POM aggregator (same as Maven <type>pom</type>)
+        implementation "org.graalvm.polyglot:js:${graalVersion}@pom"
+        // Explicit runtime language + Truffle (also pulled via POM; listed for clarity / jarJar)
+        runtimeOnly "org.graalvm.js:js-language:${graalVersion}"
+        runtimeOnly "org.graalvm.truffle:truffle-runtime:${graalVersion}"
+        // Bundle polyglot + JS engine into the mod jar for production clients (not just dev runClient).
+        // js-language alone is large; truffle-runtime is required at runtime; ICU is pulled via POM.
+        jarJar(group: 'org.graalvm.polyglot', name: 'polyglot', version: '[25.0,26.0)') {
+            version {
+                prefer graalVersion
+            }
+        }
+        jarJar(group: 'org.graalvm.js', name: 'js-language', version: '[25.0,26.0)') {
+            version {
+                prefer graalVersion
+            }
+        }
+        jarJar(group: 'org.graalvm.truffle', name: 'truffle-runtime', version: '[25.0,26.0)') {
+            version {
+                prefer graalVersion
+            }
+        }
+        // Shadowed ICU used by js-language (org.graalvm.shadowed:icu4j), not plain com.ibm.icu.
+        jarJar(group: 'org.graalvm.shadowed', name: 'icu4j', version: '[25.0,26.0)') {
+            version {
+                prefer graalVersion
+            }
+        }
+    }
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.
@@ -177,10 +232,64 @@ tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
 }
 
+// Cobblemon ships ~25k resource files. On Windows, Gradle's incremental fingerprint
+// can race (file listed for MD5 then deleted mid-copy / partial clean) and fail with:
+//   "Failed to create MD5 hash for file ... as it does not exist"
+// Official Gradle guidance for unreadable destination content: doNotTrackState.
+tasks.named('processResources', ProcessResources).configure {
+    doNotTrackState('Large cobblemon resource tree; avoid Windows processResources MD5 races')
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+// Windows: runClient / Defender often locks files under build/, so Gradle's Delete
+// leaves a partial tree that then breaks processResources. Prefer a full rmdir.
+tasks.named('clean', Delete).configure {
+    delete = [] // skip default incomplete deletes
+    doLast {
+        def buildDir = layout.buildDirectory.get().asFile
+        if (!buildDir.exists()) {
+            return
+        }
+        // Best-effort recursive delete (cmd rmdir handles long trees better than Java on Win)
+        def isWindows = System.getProperty('os.name').toLowerCase().contains('windows')
+        if (isWindows) {
+            def pb = new ProcessBuilder('cmd', '/c', 'rmdir', '/s', '/q', buildDir.absolutePath)
+            pb.redirectErrorStream(true)
+            def proc = pb.start()
+            proc.waitFor()
+        }
+        if (buildDir.exists()) {
+            // Fallback: Gradle delete of remaining children
+            project.delete(buildDir)
+        }
+        if (buildDir.exists()) {
+            logger.warn(
+                "clean: could not fully delete {} — close runClient / stop Gradle daemons " +
+                "and delete the folder manually if builds keep failing.",
+                buildDir
+            )
+        }
+    }
+}
+
 // IDEA no longer automatically downloads sources/javadoc jars for dependencies, so we need to explicitly enable the behavior.
 idea {
     module {
         downloadSources = true
         downloadJavadoc = true
+    }
+}
+// Debug helper: ./gradlew printGraalCp
+tasks.register("printGraalCp") {
+    doLast {
+        def cfg = configurations.runtimeClasspath
+        println "=== runtimeClasspath (graal-related) ==="
+        cfg.files
+                .findAll {
+                    def n = it.name.toLowerCase()
+                    n.contains("graal") || n.contains("truffle") || n.contains("polyglot") ||
+                            n.contains("icu4j") || n.startsWith("js-") || n.contains("regex") || n == "xz-${graalVersion}.jar".toLowerCase()
+                }
+                .each { println it }
     }
 }

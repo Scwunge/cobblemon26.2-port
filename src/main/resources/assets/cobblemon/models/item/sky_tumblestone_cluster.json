@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:block/tumblestone/sky_tumblestone_cluster"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:block/tumblestone/sky_tumblestone_cluster","layer0":"cobblemon:block/tumblestone/sky_tumblestone_cluster"}}

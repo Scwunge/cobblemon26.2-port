@@ -1,1 +1,1 @@
-{"parent":"cobblemon:item/pokedex_red_model","textures":{"all":"cobblemon:item/pokedexes/models/pokedex_blue"}}
+{"parent":"cobblemon:item/pokedex_red_model","textures":{"particle":"cobblemon:item/pokedexes/models/pokedex_blue","all":"cobblemon:item/pokedexes/models/pokedex_blue"}}

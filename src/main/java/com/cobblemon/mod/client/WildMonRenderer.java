@@ -76,9 +76,16 @@ public class WildMonRenderer extends MobRenderer<WildMonEntity, MonRenderState, 
         state.formId = entity.getForm().id();
         state.genderId = entity.getGender().id();
         state.modelScale = handle.sizeScale();
-        // Drive walk vs idle animation clips
+        // Drive walk vs idle / ride flight animation clips
         state.limbSwing = state.walkAnimationPos;
         state.limbSwingAmount = state.walkAnimationSpeed;
+        state.isRidden = entity.isVehicle();
+        state.isRidingFlight = entity.isRidingFlight();
+        if (state.isRidden && entity.getControllingPassenger() != null) {
+            state.riderPitch = entity.getControllingPassenger().getXRot();
+        } else {
+            state.riderPitch = 0f;
+        }
         float scale = 0.95f + handle.stage() * 0.12f;
         scale *= entity.getSizeScale();
         if (entity.getForm() == MonForm.ALPHA) {

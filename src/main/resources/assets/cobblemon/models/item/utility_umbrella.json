@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/held_items/utility_umbrella"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/held_items/utility_umbrella","layer0":"cobblemon:item/held_items/utility_umbrella"}}

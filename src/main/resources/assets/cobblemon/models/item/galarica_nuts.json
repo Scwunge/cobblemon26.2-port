@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/galarica_nuts"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/galarica_nuts","layer0":"cobblemon:item/galarica_nuts"}}

@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/food/lava_cookie"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/food/lava_cookie","layer0":"cobblemon:item/food/lava_cookie"}}

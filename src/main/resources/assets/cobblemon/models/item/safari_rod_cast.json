@@ -1,1 +1,1 @@
-{"parent":"cobblemon:item/safari_rod","textures":{"layer0":"cobblemon:item/fishing/safari_rod_cast"}}
+{"parent":"cobblemon:item/safari_rod","textures":{"particle":"cobblemon:item/fishing/safari_rod_cast","layer0":"cobblemon:item/fishing/safari_rod_cast"}}

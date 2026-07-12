@@ -1,1 +1,1 @@
-{"parent":"cobblemon:item/handheld_rotated","textures":{"layer0":"cobblemon:item/medicine/medicinal_leek"}}
+{"parent":"cobblemon:item/handheld_rotated","textures":{"particle":"cobblemon:item/medicine/medicinal_leek","layer0":"cobblemon:item/medicine/medicinal_leek"}}

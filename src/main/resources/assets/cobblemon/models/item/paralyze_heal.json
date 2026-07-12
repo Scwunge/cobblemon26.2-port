@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/medicine/paralyze_heal"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/medicine/paralyze_heal","layer0":"cobblemon:item/medicine/paralyze_heal"}}

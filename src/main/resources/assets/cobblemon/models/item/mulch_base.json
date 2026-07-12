@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/mulches/mulch_base"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/mulches/mulch_base","layer0":"cobblemon:item/mulches/mulch_base"}}

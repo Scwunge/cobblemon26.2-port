@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/iv_candy/tough_candy"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/iv_candy/tough_candy","layer0":"cobblemon:item/iv_candy/tough_candy"}}

@@ -64,5 +64,12 @@ public final class ModItems {
             props -> props.spawnEgg(ModEntities.WILD_MON.get())
     );
 
+    /** Pasture breeding product — hatches into a Lv.1 {@link com.cobblemon.mod.species.OwnedMon}. */
+    public static final DeferredItem<PokemonEggItem> POKEMON_EGG = ITEMS.registerItem(
+            "pokemon_egg",
+            PokemonEggItem::new,
+            props -> props.stacksTo(1)
+    );
+
     private ModItems() {}
 }

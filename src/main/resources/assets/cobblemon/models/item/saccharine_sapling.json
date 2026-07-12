@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:block/wood/saccharine_sapling"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:block/wood/saccharine_sapling","layer0":"cobblemon:block/wood/saccharine_sapling"}}

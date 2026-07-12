@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/pokedexes/pokedex_pink"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/pokedexes/pokedex_pink","layer0":"cobblemon:item/pokedexes/pokedex_pink"}}

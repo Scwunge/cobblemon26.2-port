@@ -17,6 +17,7 @@ import com.cobblemon.mod.item.MedicineBlockItem;
 import com.cobblemon.mod.item.MedicineItem;
 import com.cobblemon.mod.item.MintItem;
 import com.cobblemon.mod.item.MintSeedsItem;
+import com.cobblemon.mod.item.PokedexItem;
 import com.cobblemon.mod.item.PokerodItem;
 import com.cobblemon.mod.item.VitaminItem;
 import com.cobblemon.mod.species.HeldItems;
@@ -67,6 +68,10 @@ public final class ContentItems {
         for (String id : ContentLists.items()) {
             String regId = id.replace('/', '_');
             if (BY_ID.containsKey(regId)) {
+                continue;
+            }
+            // Skip animation / 3D-only meshes (e.g. pokedex_red_model_scanning)
+            if (ContentKind.isModelOnlyItem(regId)) {
                 continue;
             }
             ContentKind.ItemRole role = ContentKind.itemRole(regId);
@@ -124,7 +129,25 @@ public final class ContentItems {
                         props -> new VitaminItem(props, regId),
                         props -> props.stacksTo(64)
                 );
+                case POKEDEX -> {
+                    String color = regId.startsWith("pokedex_")
+                            ? regId.substring("pokedex_".length())
+                            : "red";
+                    yield ITEMS.registerItem(
+                            regId,
+                            props -> new PokedexItem(props, color),
+                            props -> props.stacksTo(1)
+                    );
+                }
                 default -> {
+                    // Official Cobblemon trade-evo item (not a Trade Machine block)
+                    if (regId.equals("link_cable")) {
+                        yield ITEMS.registerItem(
+                                regId,
+                                com.cobblemon.mod.item.LinkCableItem::new,
+                                props -> props.stacksTo(64)
+                        );
+                    }
                     if (regId.contains("rod") && !regId.contains("cast")) {
                         yield ITEMS.registerItem(regId, PokerodItem::new, props -> props.stacksTo(1));
                     }

@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/held_items/lagging_tail"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/held_items/lagging_tail","layer0":"cobblemon:item/held_items/lagging_tail"}}

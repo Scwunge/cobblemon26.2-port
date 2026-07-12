@@ -1,1 +1,1 @@
-{"parent":"cobblemon:item/ponigiri","textures":{"layer1":"cobblemon:item/food/ponigiri/ponigiri_pumpkin"}}
+{"parent":"cobblemon:item/ponigiri","textures":{"particle":"cobblemon:item/food/ponigiri/ponigiri_pumpkin","layer1":"cobblemon:item/food/ponigiri/ponigiri_pumpkin"}}

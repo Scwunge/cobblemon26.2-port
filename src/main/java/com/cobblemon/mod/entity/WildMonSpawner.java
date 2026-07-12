@@ -23,17 +23,18 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  * surface / water / cave probes, and small packs for common species.
  */
 public final class WildMonSpawner {
-    private static final int TICKS_BETWEEN_ATTEMPTS = 16;
-    /** Soft cap of wilds in radius (scales with player count later). */
-    private static final int MAX_NEARBY_SOFT = 20;
-    private static final int MAX_NEARBY_HARD = 28;
-    private static final double CHECK_RADIUS = 96.0;
-    private static final int MIN_DIST = 12;
-    private static final int MAX_DIST = 72;
-    private static final int MIN_ENTITY_GAP = 6;
-    private static final float ATTEMPT_CHANCE = 0.88f;
+    /** Slightly slower cadence under load (was 16). */
+    private static final int TICKS_BETWEEN_ATTEMPTS = 24;
+    /** Soft cap of wilds in radius — keep world denser but not model-thrashy. */
+    private static final int MAX_NEARBY_SOFT = 14;
+    private static final int MAX_NEARBY_HARD = 20;
+    private static final double CHECK_RADIUS = 80.0;
+    private static final int MIN_DIST = 14;
+    private static final int MAX_DIST = 64;
+    private static final int MIN_ENTITY_GAP = 7;
+    private static final float ATTEMPT_CHANCE = 0.78f;
     /** How many independent spawn tries per player per cycle when under soft cap. */
-    private static final int SPAWNS_PER_CYCLE = 2;
+    private static final int SPAWNS_PER_CYCLE = 1;
 
     private static int tickCounter;
 
@@ -64,10 +65,10 @@ public final class WildMonSpawner {
             }
             for (ServerPlayer player : level.players()) {
                 int budget = SPAWNS_PER_CYCLE;
-                // Night: slightly more pressure
+                // Night: rare second attempt only (was +1 every cycle — too dense under load)
                 long day = level.getOverworldClockTime() % 24000L;
-                if (day >= 13000L && day < 23000L) {
-                    budget++; // night pack pressure
+                if (day >= 13000L && day < 23000L && level.getRandom().nextFloat() < 0.35f) {
+                    budget++;
                 }
                 for (int i = 0; i < budget; i++) {
                     if (!trySpawnNear(level, player)) {

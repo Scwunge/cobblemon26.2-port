@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/held_items/grip_claw"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/held_items/grip_claw","layer0":"cobblemon:item/held_items/grip_claw"}}

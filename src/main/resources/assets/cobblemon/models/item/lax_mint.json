@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/mints/lax_mint"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/mints/lax_mint","layer0":"cobblemon:item/mints/lax_mint"}}

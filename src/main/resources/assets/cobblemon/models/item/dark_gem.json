@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/type_gem/dark_gem"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/type_gem/dark_gem","layer0":"cobblemon:item/type_gem/dark_gem"}}

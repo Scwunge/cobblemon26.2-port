@@ -95,6 +95,57 @@ public final class BedrockAnimationLoader {
             return findExact("ground_run");
         }
 
+        /** Air idle while hovering / held aloft (porter air_idle). */
+        public Clip findAirIdle() {
+            Clip c = findExact("air_idle");
+            if (c != null) {
+                return c;
+            }
+            return findExact("hover");
+        }
+
+        /**
+         * Forward flight — prefer full {@code air_fly} (many bones).
+         * {@code ride_air_fly} is sparse and T-poses Charizard-style geos.
+         */
+        public Clip findAirFly() {
+            Clip c = findExact("air_fly");
+            if (c != null) {
+                return c;
+            }
+            c = findExact("air_glide");
+            if (c != null) {
+                return c;
+            }
+            return findExact("ride_air_fly");
+        }
+
+        /** Dive while flying. */
+        public Clip findAirDive() {
+            Clip c = findExact("air_fly"); // full wing set; ride_air_dive is sparse
+            if (c != null) {
+                // Prefer dedicated dive if present with real content later
+            }
+            Clip dive = findExact("air_dive");
+            if (dive != null) {
+                return dive;
+            }
+            dive = findExact("ride_air_dive");
+            if (dive != null) {
+                return dive;
+            }
+            return findAirFly();
+        }
+
+        /** Ground ride run (porter ride_ground_run). */
+        public Clip findRideGround() {
+            Clip c = findExact("ride_ground_run");
+            if (c != null) {
+                return c;
+            }
+            return findWalk();
+        }
+
         /** Match animation.&lt;species&gt;.&lt;name&gt; exactly by suffix. */
         public Clip findExact(String poseName) {
             String suffix = "." + poseName.toLowerCase(Locale.ROOT);

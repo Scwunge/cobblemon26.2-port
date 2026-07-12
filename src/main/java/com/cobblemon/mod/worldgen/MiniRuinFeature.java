@@ -72,7 +72,8 @@ public class MiniRuinFeature extends Feature<NoneFeatureConfiguration> {
             BlockPos chest = origin;
             level.setBlock(chest, Blocks.CHEST.defaultBlockState(), 2);
             if (level.getBlockEntity(chest) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity be) {
-                be.setLootTable(net.minecraft.world.level.storage.loot.BuiltInLootTables.SIMPLE_DUNGEON);
+                // Official Cobblemon ruins loot (balls, stones, candies, relics…)
+                be.setLootTable(CobblemonLoot.pickRuin(random));
                 be.setLootTableSeed(random.nextLong());
             }
         }

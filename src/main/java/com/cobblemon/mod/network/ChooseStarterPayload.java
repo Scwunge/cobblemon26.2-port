@@ -3,8 +3,9 @@ package com.cobblemon.mod.network;
 import com.cobblemon.mod.Cobblemon;
 import com.cobblemon.mod.item.ModItems;
 import com.cobblemon.mod.party.PartyHelper;
-import com.cobblemon.mod.species.MonSpecies;
 import com.cobblemon.mod.species.OwnedMon;
+import com.cobblemon.mod.species.StarterCatalog;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
@@ -37,12 +38,14 @@ public record ChooseStarterPayload(String speciesId) implements CustomPacketPayl
             player.sendSystemMessage(Component.translatable("message.cobblemon.already_started"));
             return;
         }
-        var opt = MonSpecies.byId(payload.speciesId());
-        if (opt.isEmpty() || !opt.get().isStarter()) {
+        String id = payload.speciesId() == null ? "" : payload.speciesId().trim().toLowerCase();
+        if (!StarterCatalog.isValidStarter(id)) {
             player.sendSystemMessage(Component.translatable("message.cobblemon.invalid_starter"));
             return;
         }
-        OwnedMon mon = OwnedMon.createWild(opt.get(), 5);
+        OwnedMon mon = OwnedMon.createWild(id, 5, RandomSource.create());
+        // Starters always get ≥1 attack + ≥1 defensive 0-power move
+        mon = mon.withMoveIds(com.cobblemon.mod.species.StarterMoves.forStarter(id, 5));
         PartyHelper.addMon(player, mon);
         // Starter kit — real Poké Balls when content pack registered, else cube balls
         giveBall(player, "poke_ball", 12);

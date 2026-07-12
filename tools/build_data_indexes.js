@@ -84,6 +84,12 @@ function buildSpeciesIndex() {
         moves: (j.moves || [])
           .filter((m) => typeof m === "string" && /^\d+:/.test(m))
           .slice(0, 40),
+        // egg-move pool (ids only, no "egg:" prefix)
+        eggMoves: (j.moves || [])
+          .filter((m) => typeof m === "string" && /^egg:/i.test(m))
+          .map((m) => String(m).replace(/^egg:/i, "").toLowerCase())
+          .filter((m) => m.length > 0)
+          .slice(0, 32),
       };
       n++;
     } catch (e) {

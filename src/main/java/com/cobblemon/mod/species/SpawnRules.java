@@ -211,18 +211,12 @@ public final class SpawnRules {
     }
 
     private static SpawnEntry pickWeighted(List<SpawnEntry> pool, RandomSource random) {
-        float total = 0f;
-        for (SpawnEntry e : pool) {
-            total += Math.max(0.01f, e.weight);
-        }
-        float roll = random.nextFloat() * total;
-        for (SpawnEntry e : pool) {
-            roll -= Math.max(0.01f, e.weight);
-            if (roll <= 0f) {
-                return e;
-            }
-        }
-        return pool.get(pool.size() - 1);
+        // Official-style weighted pick (Kotlin Collections util from porter audit)
+        SpawnEntry chosen = com.cobblemon.mod.util.Collections.weightedSelection(
+                pool,
+                new java.util.Random(random.nextLong()),
+                e -> Math.max(0.01, e.weight));
+        return chosen != null ? chosen : pool.get(pool.size() - 1);
     }
 
     /** Local habitat snapshot — no canSeeSky / cross-chunk heightmaps. */

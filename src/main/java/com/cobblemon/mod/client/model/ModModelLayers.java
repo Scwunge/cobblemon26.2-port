@@ -16,6 +16,8 @@ public final class ModModelLayers {
             new ModelLayerLocation(Identifier.fromNamespaceAndPath(Cobblemon.MOD_ID, "subshah"), "main");
     public static final ModelLayerLocation BILLBOARD =
             new ModelLayerLocation(Identifier.fromNamespaceAndPath(Cobblemon.MOD_ID, "mon_billboard"), "main");
+    public static final ModelLayerLocation TRAINER_NPC =
+            new ModelLayerLocation(Identifier.fromNamespaceAndPath(Cobblemon.MOD_ID, "trainer_npc"), "main");
 
     private ModModelLayers() {}
 
@@ -24,5 +26,6 @@ public final class ModModelLayers {
         event.registerLayerDefinition(MON, CobblemonModel::createBodyLayer);
         event.registerLayerDefinition(SUBSHAH, SubshahModel::createBodyLayer);
         event.registerLayerDefinition(BILLBOARD, MonBillboardModel::createBodyLayer);
+        event.registerLayerDefinition(TRAINER_NPC, TrainerNpcModel::createBodyLayer);
     }
 }

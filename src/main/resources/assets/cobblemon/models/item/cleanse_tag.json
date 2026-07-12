@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/held_items/cleanse_tag"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/held_items/cleanse_tag","layer0":"cobblemon:item/held_items/cleanse_tag"}}

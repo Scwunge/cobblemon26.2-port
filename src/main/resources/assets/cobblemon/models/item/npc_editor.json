@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/npc_editor"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/npc_editor","layer0":"cobblemon:item/npc_editor"}}

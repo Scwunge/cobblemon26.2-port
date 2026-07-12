@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/held_items/assault_vest"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/held_items/assault_vest","layer0":"cobblemon:item/held_items/assault_vest"}}

@@ -22,4 +22,10 @@ public class MonRenderState extends LivingEntityRenderState {
     /** Walk limb swing for leg animation. */
     public float limbSwing;
     public float limbSwingAmount;
+    /** Player is riding this mon. */
+    public boolean isRidden;
+    /** Rider has taken off (flight mode active). */
+    public boolean isRidingFlight;
+    /** Vertical look pitch of rider (for dive vs climb anim). */
+    public float riderPitch;
 }

@@ -13,6 +13,7 @@ import com.cobblemon.mod.species.SpeciesRegistry;
 
 /**
  * Level-up learnsets from Cobblemon species datapack ({@code "12:razorleaf"} style).
+ * Resolves to {@link BattleMove} (Showdown stats when available).
  * Falls back to procedural {@link Learnsets} when data is missing.
  */
 public final class DatapackLearnsets {
@@ -20,37 +21,57 @@ public final class DatapackLearnsets {
 
     private DatapackLearnsets() {}
 
-    public static Map<Integer, MonMove> forSpeciesId(String speciesId) {
+    /** Level → official move id (canonicalized). */
+    public static Map<Integer, String> forSpeciesIds(String speciesId) {
         SpeciesRegistry.SpeciesData data = SpeciesRegistry.get(speciesId).orElse(null);
         if (data == null || data.levelMoves() == null || data.levelMoves().isEmpty()) {
-            return Learnsets.forSpecies(SpeciesHandle.of(speciesId).asEnumOrFallback());
+            Map<Integer, String> fallback = new LinkedHashMap<>();
+            for (var e : Learnsets.forSpecies(SpeciesHandle.of(speciesId).asEnumOrFallback()).entrySet()) {
+                fallback.put(e.getKey(), ShowdownMoveDex.canonicalize(e.getValue().id()));
+            }
+            return fallback;
         }
-        Map<Integer, MonMove> map = new LinkedHashMap<>();
+        Map<Integer, String> map = new LinkedHashMap<>();
         for (String raw : data.levelMoves()) {
             Matcher m = LV_MOVE.matcher(raw.trim());
             if (!m.matches()) {
                 continue;
             }
             int lv = Integer.parseInt(m.group(1));
-            MonMove move = MoveAliases.resolve(m.group(2));
-            map.put(lv, move);
+            map.put(lv, ShowdownMoveDex.canonicalize(m.group(2)));
         }
         if (map.isEmpty()) {
-            return Learnsets.forSpecies(SpeciesHandle.of(speciesId).asEnumOrFallback());
+            Map<Integer, String> fallback = new LinkedHashMap<>();
+            for (var e : Learnsets.forSpecies(SpeciesHandle.of(speciesId).asEnumOrFallback()).entrySet()) {
+                fallback.put(e.getKey(), ShowdownMoveDex.canonicalize(e.getValue().id()));
+            }
+            return fallback;
+        }
+        return map;
+    }
+
+    public static Map<Integer, MonMove> forSpeciesId(String speciesId) {
+        Map<Integer, MonMove> map = new LinkedHashMap<>();
+        for (var e : forSpeciesIds(speciesId).entrySet()) {
+            map.put(e.getKey(), MoveAliases.resolve(e.getValue()));
         }
         return map;
     }
 
     public static List<MonMove> movesKnownAtLevel(String speciesId, int level) {
+        return battleMovesKnownAtLevel(speciesId, level).stream()
+                .map(bm -> MoveAliases.resolve(bm.getId()))
+                .toList();
+    }
+
+    public static List<BattleMove> battleMovesKnownAtLevel(String speciesId, int level) {
         level = Math.max(1, Math.min(100, level));
-        Map<Integer, MonMove> table = forSpeciesId(speciesId);
-        // Detect pure procedural table vs pack: if registry has level moves, use them
         SpeciesRegistry.SpeciesData data = SpeciesRegistry.get(speciesId).orElse(null);
         if (data != null && data.levelMoves() != null && !data.levelMoves().isEmpty()) {
-            List<Map.Entry<Integer, MonMove>> entries = new ArrayList<>(table.entrySet());
+            List<Map.Entry<Integer, String>> entries = new ArrayList<>(forSpeciesIds(speciesId).entrySet());
             entries.sort(Comparator.comparingInt(Map.Entry::getKey));
-            List<MonMove> known = new ArrayList<>();
-            for (Map.Entry<Integer, MonMove> e : entries) {
+            List<String> known = new ArrayList<>();
+            for (Map.Entry<Integer, String> e : entries) {
                 if (e.getKey() > level) {
                     break;
                 }
@@ -58,23 +79,41 @@ public final class DatapackLearnsets {
                 known.add(e.getValue());
             }
             if (!known.isEmpty()) {
-                if (known.size() <= 4) {
-                    return known;
+                if (known.size() > 4) {
+                    known = new ArrayList<>(known.subList(known.size() - 4, known.size()));
                 }
-                return new ArrayList<>(known.subList(known.size() - 4, known.size()));
+                return known.stream().map(BattleMove::resolve).toList();
             }
         }
-        return Learnsets.proceduralMovesKnownAtLevel(SpeciesHandle.of(speciesId).asEnumOrFallback(), level);
+        return Learnsets.proceduralMovesKnownAtLevel(SpeciesHandle.of(speciesId).asEnumOrFallback(), level)
+                .stream()
+                .map(m -> BattleMove.resolve(m.id()))
+                .toList();
     }
 
     public static MonMove learnAt(String speciesId, int level) {
         SpeciesRegistry.SpeciesData data = SpeciesRegistry.get(speciesId).orElse(null);
         if (data != null && data.levelMoves() != null && !data.levelMoves().isEmpty()) {
-            MonMove m = forSpeciesId(speciesId).get(level);
-            if (m != null) {
-                return m;
+            String id = forSpeciesIds(speciesId).get(level);
+            if (id != null) {
+                return MoveAliases.resolve(id);
             }
         }
         return Learnsets.proceduralLearnAt(SpeciesHandle.of(speciesId).asEnumOrFallback(), level);
+    }
+
+    public static BattleMove battleLearnAt(String speciesId, int level) {
+        MonMove m = learnAt(speciesId, level);
+        if (m == null) {
+            return null;
+        }
+        SpeciesRegistry.SpeciesData data = SpeciesRegistry.get(speciesId).orElse(null);
+        if (data != null && data.levelMoves() != null && !data.levelMoves().isEmpty()) {
+            String id = forSpeciesIds(speciesId).get(level);
+            if (id != null) {
+                return BattleMove.resolve(id);
+            }
+        }
+        return BattleMove.resolve(m.id());
     }
 }

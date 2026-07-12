@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/wood/saccharine_sign"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/wood/saccharine_sign","layer0":"cobblemon:item/wood/saccharine_sign"}}

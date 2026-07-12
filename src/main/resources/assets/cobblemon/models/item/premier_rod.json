@@ -1,1 +1,1 @@
-{"parent":"item/handheld_rod","textures":{"layer0":"cobblemon:item/fishing/premier_rod"},"overrides":[{"predicate":{"cast":1},"model":"cobblemon:item/premier_rod_cast"}]}
+{"parent":"item/handheld_rod","textures":{"particle":"cobblemon:item/fishing/premier_rod","layer0":"cobblemon:item/fishing/premier_rod"},"overrides":[{"predicate":{"cast":1},"model":"cobblemon:item/premier_rod_cast"}]}

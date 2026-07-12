@@ -63,6 +63,22 @@ public class OverworldDecorationFeature extends Feature<NoneFeatureConfiguration
                 any = true;
             }
         }
+        // S1 safe landmarks (rare — feature registry only, never structure tags)
+        if (random.nextInt(90) == 0) {
+            if (LandmarkFeature.placeAt(level, surface, random, LandmarkFeature.Kind.CENTER)) {
+                any = true;
+            }
+        }
+        if (random.nextInt(110) == 0) {
+            if (LandmarkFeature.placeAt(level, surface, random, LandmarkFeature.Kind.TOWER)) {
+                any = true;
+            }
+        }
+        if (random.nextInt(95) == 0) {
+            if (LandmarkFeature.placeAt(level, surface, random, LandmarkFeature.Kind.DIG_SITE)) {
+                any = true;
+            }
+        }
         return any;
     }
 }

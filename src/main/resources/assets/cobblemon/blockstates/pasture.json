@@ -1,8 +1,8 @@
 {
   "variants": {
-    "facing=north": { "model": "cobblemon:block/pasture", "y": 180 },
-    "facing=south": { "model": "cobblemon:block/pasture" },
-    "facing=west": { "model": "cobblemon:block/pasture", "y": 90 },
-    "facing=east": { "model": "cobblemon:block/pasture", "y": 270 }
+    "facing=north": { "model": "cobblemon:block/pasture" },
+    "facing=south": { "model": "cobblemon:block/pasture", "y": 180 },
+    "facing=west": { "model": "cobblemon:block/pasture", "y": 270 },
+    "facing=east": { "model": "cobblemon:block/pasture", "y": 90 }
   }
 }

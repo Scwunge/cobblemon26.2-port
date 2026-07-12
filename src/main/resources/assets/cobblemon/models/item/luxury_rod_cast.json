@@ -1,1 +1,1 @@
-{"parent":"cobblemon:item/luxury_rod","textures":{"layer0":"cobblemon:item/fishing/luxury_rod_cast"}}
+{"parent":"cobblemon:item/luxury_rod","textures":{"particle":"cobblemon:item/fishing/luxury_rod_cast","layer0":"cobblemon:item/fishing/luxury_rod_cast"}}

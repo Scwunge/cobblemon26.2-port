@@ -15,7 +15,7 @@ public final class UiTextures {
     private UiTextures() {}
 
     public static Identifier gui(String path) {
-        return Identifier.fromNamespaceAndPath(Cobblemon.MOD_ID, "textures/gui/" + path);
+        return com.cobblemon.mod.util.CobblemonResource.guiTexture(path);
     }
 
     // --- Battle (native sizes) ---
@@ -101,6 +101,9 @@ public final class UiTextures {
     public static final Identifier STARTER_EXIT = gui("starterselection/starterselection_exit.png");
     public static final Identifier STARTER_ARROW_L = gui("starterselection/starterselection_arrow_left.png");
     public static final Identifier STARTER_ARROW_R = gui("starterselection/starterselection_arrow_right.png");
+    public static final Identifier STARTER_TYPE1 = gui("starterselection/starterselection_type_slot1.png");
+    public static final Identifier STARTER_TYPE2 = gui("starterselection/starterselection_type_slot2.png");
+    public static final Identifier STARTER_TYPE3 = gui("starterselection/starterselection_type_slot3.png");
 
     public static final int STARTER_BASE_W = 800, STARTER_BASE_H = 700;
     public static final int STARTER_SLOT_W = 202, STARTER_SLOT_H = 60;

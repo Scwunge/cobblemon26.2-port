@@ -4,6 +4,7 @@ import com.cobblemon.mod.battle.BattleManager;
 import com.cobblemon.mod.battle.BattleSession;
 import com.cobblemon.mod.battle.MonMove;
 import com.cobblemon.mod.entity.ModEntities;
+import com.cobblemon.mod.entity.TrainerNpcEntity;
 import com.cobblemon.mod.entity.WildMonEntity;
 import com.cobblemon.mod.network.OpenPcPayload;
 import com.cobblemon.mod.network.OpenStarterPayload;
@@ -81,10 +82,34 @@ public final class CobblemonCommands {
                 .then(Commands.argument("player", EntityArgument.player())
                         .executes(ctx -> clearPc(ctx, EntityArgument.getPlayer(ctx, "player")))));
 
-        // openstarterscreen / pc / pokedex (player UI — no op required)
+        // openstarterscreen / pc / pokedex / trade (player UI — no op required)
         dispatcher.register(Commands.literal("openstarterscreen").executes(CobblemonCommands::openStarter));
         dispatcher.register(Commands.literal("pc").executes(ctx -> openPc(ctx, self(ctx))));
         dispatcher.register(Commands.literal("pokedex").executes(CobblemonCommands::pokedex));
+        dispatcher.register(Commands.literal("trade").executes(CobblemonCommands::openTrade));
+
+        // spawntrainer — op scaffold for N1; optional badge for N3 gym leaders
+        registerOp(dispatcher, "spawntrainer", b -> b
+                .executes(ctx -> spawnTrainer(ctx, "Trainer", ""))
+                .then(Commands.argument("name", StringArgumentType.string())
+                        .executes(ctx -> spawnTrainer(ctx, StringArgumentType.getString(ctx, "name"), ""))
+                        .then(Commands.argument("badge", StringArgumentType.word())
+                                .executes(ctx -> spawnTrainer(ctx,
+                                        StringArgumentType.getString(ctx, "name"),
+                                        StringArgumentType.getString(ctx, "badge"))))));
+
+        // badges / givebadge (N3)
+        dispatcher.register(Commands.literal("badges").executes(CobblemonCommands::listBadges));
+        registerOp(dispatcher, "givebadge", b -> b
+                .then(Commands.argument("badge", StringArgumentType.word())
+                        .executes(ctx -> giveBadge(ctx, self(ctx), StringArgumentType.getString(ctx, "badge")))
+                        .then(Commands.argument("player", EntityArgument.player())
+                                .executes(ctx -> giveBadge(ctx,
+                                        EntityArgument.getPlayer(ctx, "player"),
+                                        StringArgumentType.getString(ctx, "badge"))))));
+
+        // doubleduel — B3 test: start doubles with two nearest wilds
+        registerOp(dispatcher, "doubleduel", b -> b.executes(CobblemonCommands::doubleDuel));
 
         // teach
         registerOp(dispatcher, "teach", b -> b
@@ -102,6 +127,20 @@ public final class CobblemonCommands {
 
         // stopbattle
         registerOp(dispatcher, "stopbattle", b -> b.executes(CobblemonCommands::stopBattle));
+
+        // giveegg <species> [hatchTicks] — test egg hatch path
+        registerOp(dispatcher, "giveegg", b -> b
+                .then(Commands.argument("species", StringArgumentType.word())
+                        .executes(ctx -> giveEgg(ctx, StringArgumentType.getString(ctx, "species"), 20 * 10))
+                        .then(Commands.argument("ticks", IntegerArgumentType.integer(1, 20 * 60 * 60))
+                                .executes(ctx -> giveEgg(ctx, StringArgumentType.getString(ctx, "species"),
+                                        IntegerArgumentType.getInteger(ctx, "ticks"))))));
+
+        // makeshiny [slot] — force party mon shiny (test C1)
+        registerOp(dispatcher, "makeshiny", b -> b
+                .executes(ctx -> makeShiny(ctx, 1))
+                .then(Commands.argument("slot", IntegerArgumentType.integer(1, 6))
+                        .executes(ctx -> makeShiny(ctx, IntegerArgumentType.getInteger(ctx, "slot")))));
 
         // helditem
         registerOp(dispatcher, "helditem", b -> b
@@ -294,7 +333,59 @@ public final class CobblemonCommands {
         PartyHelper.addMon(player, mon);
         ctx.getSource().sendSuccess(() -> Component.literal(
                 "Gave " + mon.displayName().getString() + " Lv." + mon.level()
-                        + " (" + mon.speciesId() + ") to " + player.getScoreboardName() + "."
+                        + " (" + mon.speciesId() + ")"
+                        + (mon.isShiny() ? " §e★Shiny" : "")
+                        + " to " + player.getScoreboardName() + "."
+        ), true);
+        return 1;
+    }
+
+    private static int giveEgg(CommandContext<CommandSourceStack> ctx, String species, int hatchTicks) {
+        ServerPlayer player = self(ctx);
+        if (player == null) {
+            return 0;
+        }
+        String id = species.toLowerCase();
+        if (SpeciesRegistry.get(id).isEmpty() && MonSpecies.byId(id).isEmpty()) {
+            ctx.getSource().sendFailure(Component.literal("Unknown species: " + id));
+            return 0;
+        }
+        net.minecraft.world.item.ItemStack egg = new net.minecraft.world.item.ItemStack(
+                com.cobblemon.mod.item.ModItems.POKEMON_EGG.get());
+        com.cobblemon.mod.item.PokemonEggItem.writeEggData(
+                egg,
+                id,
+                hatchTicks,
+                com.cobblemon.mod.species.StatBlock.rollIvs(player.getRandom()),
+                java.util.List.of(),
+                com.cobblemon.mod.species.MonForm.NORMAL.id(),
+                false
+        );
+        if (!player.getInventory().add(egg)) {
+            player.drop(egg, false);
+        }
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "Gave " + id + " egg (" + hatchTicks + " ticks) to " + player.getScoreboardName() + "."
+        ), true);
+        return 1;
+    }
+
+    private static int makeShiny(CommandContext<CommandSourceStack> ctx, int slot1) {
+        ServerPlayer player = self(ctx);
+        if (player == null) {
+            return 0;
+        }
+        int idx = slot1 - 1;
+        PlayerParty party = PartyHelper.get(player);
+        OwnedMon mon = party.get(idx).orElse(null);
+        if (mon == null) {
+            ctx.getSource().sendFailure(Component.literal("Empty party slot " + slot1 + "."));
+            return 0;
+        }
+        OwnedMon shiny = mon.withShiny(true);
+        PartyHelper.setSlot(player, idx, shiny);
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "§e★ " + shiny.displayName().getString() + " is now shiny (form=" + shiny.form().id() + ")."
         ), true);
         return 1;
     }
@@ -520,6 +611,138 @@ public final class CobblemonCommands {
                 "Pokédex — Seen: " + dex.seenCount() + " / Caught: " + dex.caughtCount()
                         + " (of ~" + total + " species)"
         ), false);
+        return 1;
+    }
+
+    private static int openTrade(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = self(ctx);
+        if (player == null) {
+            return 0;
+        }
+        // Prefer request to nearest player (Cobblemon-style); else debug self-trade
+        ServerPlayer nearest = null;
+        double best = 12 * 12;
+        for (ServerPlayer other : player.level().players()) {
+            if (other == player) continue;
+            double d = other.distanceToSqr(player);
+            if (d < best) {
+                best = d;
+                nearest = other;
+            }
+        }
+        if (nearest != null) {
+            com.cobblemon.mod.trade.TradeManager.requestTrade(player, nearest);
+            ctx.getSource().sendSuccess(() -> Component.literal(
+                    "§aTrade request sent to nearest player."), false);
+        } else {
+            com.cobblemon.mod.trade.TradeManager.open(player, null);
+            ctx.getSource().sendSuccess(() -> Component.literal(
+                    "§aNo players nearby — opened debug self-trade."), false);
+        }
+        return 1;
+    }
+
+    private static int listBadges(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = self(ctx);
+        if (player == null) {
+            return 0;
+        }
+        var badges = com.cobblemon.mod.party.PlayerBadges.get(player);
+        if (badges.count() == 0) {
+            ctx.getSource().sendSuccess(() -> Component.literal("§7No gym badges yet. Defeat a gym leader!"), false);
+            return 1;
+        }
+        StringBuilder sb = new StringBuilder("§eBadges (").append(badges.count()).append("): §f");
+        for (String id : badges.ordered()) {
+            sb.append(com.cobblemon.mod.party.PlayerBadges.displayName(id)).append("  ");
+        }
+        ctx.getSource().sendSuccess(() -> Component.literal(sb.toString()), false);
+        return 1;
+    }
+
+    private static int giveBadge(CommandContext<CommandSourceStack> ctx, ServerPlayer player, String badge) {
+        if (player == null) {
+            return 0;
+        }
+        if (com.cobblemon.mod.party.PlayerBadges.award(player, badge)) {
+            ctx.getSource().sendSuccess(() -> Component.literal(
+                    "§aAwarded " + com.cobblemon.mod.party.PlayerBadges.displayName(badge)
+                            + " to " + player.getScoreboardName()
+            ), true);
+            return 1;
+        }
+        ctx.getSource().sendFailure(Component.literal("Already has that badge (or invalid id)."));
+        return 0;
+    }
+
+    private static int doubleDuel(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = self(ctx);
+        if (player == null) {
+            return 0;
+        }
+        if (!(player.level() instanceof ServerLevel level)) {
+            return 0;
+        }
+        java.util.List<WildMonEntity> near = level.getEntitiesOfClass(
+                WildMonEntity.class,
+                player.getBoundingBox().inflate(8),
+                e -> !e.isCompanion() && !e.isRemoved()
+        );
+        if (near.size() < 2) {
+            // Spawn two wilds and start
+            WildMonEntity a = ModEntities.WILD_MON.get().create(level, EntitySpawnReason.COMMAND);
+            WildMonEntity b = ModEntities.WILD_MON.get().create(level, EntitySpawnReason.COMMAND);
+            if (a == null || b == null) {
+                ctx.getSource().sendFailure(Component.literal("Failed to spawn foes."));
+                return 0;
+            }
+            a.setPos(player.getX() + 1.5, player.getY(), player.getZ());
+            b.setPos(player.getX() - 1.5, player.getY(), player.getZ());
+            a.applyIdentity(OwnedMon.createWild("rattata", 8, player.getRandom()));
+            b.applyIdentity(OwnedMon.createWild("pidgey", 8, player.getRandom()));
+            level.addFreshEntity(a);
+            level.addFreshEntity(b);
+            near = java.util.List.of(a, b);
+        }
+        WildMonEntity w0 = near.get(0);
+        WildMonEntity w1 = near.get(1);
+        if (BattleManager.tryStartDoubles(player, w0, w1)) {
+            ctx.getSource().sendSuccess(() -> Component.literal("§bDouble battle started!"), true);
+            return 1;
+        }
+        ctx.getSource().sendFailure(Component.literal("Could not start doubles (need 2 healthy party mons)."));
+        return 0;
+    }
+
+    private static int spawnTrainer(CommandContext<CommandSourceStack> ctx, String name, String badgeId) {
+        ServerPlayer player = self(ctx);
+        if (player == null) {
+            return 0;
+        }
+        ServerLevel world = player.level();
+        TrainerNpcEntity npc = ModEntities.TRAINER_NPC.get().create(world, EntitySpawnReason.COMMAND);
+        if (npc == null) {
+            ctx.getSource().sendFailure(Component.literal("Failed to create trainer NPC."));
+            return 0;
+        }
+        Vec3 look = player.getLookAngle();
+        Vec3 pos = player.position().add(look.x * 3.0, 0.0, look.z * 3.0);
+        npc.setPos(pos.x, player.getY(), pos.z);
+        npc.setTrainerName(name == null || name.isBlank() ? "Trainer" : name);
+        npc.setTrainerTeam(TrainerNpcEntity.defaultTeam());
+        if (badgeId != null && !badgeId.isBlank()) {
+            npc.setBadgeId(badgeId);
+        }
+        npc.setYRot(player.getYRot() + 180f);
+        world.addFreshEntity(npc);
+        String badgeNote = npc.isGymLeader()
+                ? " §6[gym: " + npc.getBadgeId() + " badge]"
+                : "";
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "§aSpawned trainer §f" + npc.getTrainerName()
+                        + " §7(team: " + npc.getTrainerTeam().size() + " mons)"
+                        + badgeNote + "§7. Right-click to battle."
+        ), true);
         return 1;
     }
 

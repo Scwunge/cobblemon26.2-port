@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/evolution/metal_coat"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/evolution/metal_coat","layer0":"cobblemon:item/evolution/metal_coat"}}

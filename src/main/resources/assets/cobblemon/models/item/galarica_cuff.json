@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/evolution/galarica_cuff"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/evolution/galarica_cuff","layer0":"cobblemon:item/evolution/galarica_cuff"}}

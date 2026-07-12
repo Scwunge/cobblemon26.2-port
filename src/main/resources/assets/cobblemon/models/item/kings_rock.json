@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/evolution/kings_rock"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/evolution/kings_rock","layer0":"cobblemon:item/evolution/kings_rock"}}

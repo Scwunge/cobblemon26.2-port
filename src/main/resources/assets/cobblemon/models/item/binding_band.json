@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/held_items/binding_band"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/held_items/binding_band","layer0":"cobblemon:item/held_items/binding_band"}}

@@ -2,6 +2,8 @@ package com.cobblemon.mod.network;
 
 import com.cobblemon.mod.Cobblemon;
 import com.cobblemon.mod.entity.WildMonEntity;
+import com.cobblemon.mod.ride.RideController;
+import com.cobblemon.mod.ride.RideSettingsLoader;
 import com.cobblemon.mod.species.SpeciesHandle;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
@@ -13,6 +15,7 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 /**
  * Mount / dismount the player's sent-out companion (riding).
+ * Speed / canFly come from {@link RideSettingsLoader} via {@link RideController}.
  */
 public record RidePayload() implements CustomPacketPayload {
     public static final Type<RidePayload> TYPE =
@@ -33,9 +36,14 @@ public record RidePayload() implements CustomPacketPayload {
         if (!(context.player() instanceof ServerPlayer player)) {
             return;
         }
-        // Already riding something — dismount
+        // Already riding something — intentional dismount (V). Shift alone must not dismount
+        // so it can be used for dive/descend on water & flying mounts.
         if (player.isPassenger()) {
-            player.stopRiding();
+            var vehicle = player.getVehicle();
+            RideController.intentionalDismount(player);
+            if (vehicle instanceof WildMonEntity mon) {
+                RideController.onDismount(mon);
+            }
             player.sendSystemMessage(Component.literal("§7Dismounted."));
             return;
         }
@@ -62,14 +70,23 @@ public record RidePayload() implements CustomPacketPayload {
         // Mount companion
         boolean ok = player.startRiding(companion, true, true);
         if (ok) {
-            player.sendSystemMessage(Component.literal(
-                    "§aRiding " + companion.getDisplayName().getString() + " §7— V again to dismount."));
-            var speed = companion.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED);
-            if (speed != null) {
-                speed.setBaseValue(0.28 + Math.min(0.20, companion.getMonLevel() * 0.004));
+            RideSettingsLoader.RideSettings settings = RideController.applyMount(companion, player);
+            boolean fly = RideController.canFly(companion);
+            boolean swim = RideController.canSwimMount(companion);
+            String modeNote;
+            if (fly) {
+                modeNote = " §b[HOLD Space fly · HOLD Shift dive · release Space fall · V dismount]";
+            } else if (swim) {
+                modeNote = " §3[boat on surface · HOLD Shift to dive · release = float up · V dismount]";
+            } else {
+                modeNote = " §e[land · V dismount]";
             }
+            player.sendSystemMessage(Component.literal(
+                    "§aRiding " + companion.getDisplayName().getString()
+                            + " §7(" + settings.id() + modeNote + "§7)"));
         } else {
-            player.sendSystemMessage(Component.literal("§cCouldn't mount."));
+            player.sendSystemMessage(Component.literal(
+                    "§cCouldn't mount (too small, or not your mon)."));
         }
     }
 }

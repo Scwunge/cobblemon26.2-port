@@ -1,0 +1,48 @@
+﻿> Task :checkKotlinGradlePluginConfigurationErrors SKIPPED
+
+> Task :createMinecraftArtifacts
+Loaded 154 artifacts from C:\Users\conne\Desktop\pixelmontest\fakemons\build\tmp\createMinecraftArtifacts\nfrt_artifact_manifest.properties
+*** Started working on downloadManifest
+  DL    https://launchermeta.mojang.com/mc/game/version_manifest_v2.json
+ DONE  Completed downloadManifest in 0.37s
+*** Started working on downloadJson
+ DONE  Completed downloadJson in 0.01s
+*** Started working on downloadClient
+*** Started working on downloadServer
+ DONE  Completed downloadServer in 0.04s
+ DONE  Completed downloadClient in 0.04s
+*** Started working on preProcessJar
+ REUSE Used cache of preProcessJar in 0.00s
+*** Started working on decompile
+ REUSE Used cache of decompile in 0.00s
+*** Started working on patch
+ REUSE Used cache of patch in 0.00s
+*** Started working on applyNeoforgePatches
+ REUSE Used cache of applyNeoforgePatches in 0.00s
+*** Started working on transformSources
+ REUSE Used cache of transformSources in 0.00s
+*** Started working on recompile
+ REUSE Used cache of recompile in 0.00s
+*** Started working on mergeWithSources
+ REUSE Used cache of mergeWithSources in 0.00s
+Total runtime: 1.31s
+
+
+> Task :compileKotlin
+w: Inconsistent JVM Target Compatibility Between Java and Kotlin Tasks
+Inconsistent JVM-target compatibility detected for tasks 'compileJava' (25) and 'compileKotlin' (24).
+This will become an error in Gradle 8.0.
+Solution: Consider using JVM Toolchain: https://kotl.in/gradle/jvm/toolchain
+Learn more about JVM-target validation: https://kotl.in/gradle/jvm/target-validation
+
+
+[Incubating] Problems report is available at: file:///C:/Users/conne/Desktop/pixelmontest/fakemons/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/9.2.1/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 5s
+2 actionable tasks: 2 executed

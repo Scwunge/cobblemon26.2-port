@@ -1,1 +1,1 @@
-{"parent":"cobblemon:item/dusk_rod","textures":{"layer0":"cobblemon:item/fishing/dusk_rod_cast"}}
+{"parent":"cobblemon:item/dusk_rod","textures":{"particle":"cobblemon:item/fishing/dusk_rod_cast","layer0":"cobblemon:item/fishing/dusk_rod_cast"}}

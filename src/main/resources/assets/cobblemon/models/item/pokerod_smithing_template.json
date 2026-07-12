@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/pokerod_smithing_template"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/pokerod_smithing_template","layer0":"cobblemon:item/pokerod_smithing_template"}}

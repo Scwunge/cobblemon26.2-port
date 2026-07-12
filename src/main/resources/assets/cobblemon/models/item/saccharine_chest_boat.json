@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/wood/saccharine_chest_boat"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/wood/saccharine_chest_boat","layer0":"cobblemon:item/wood/saccharine_chest_boat"}}

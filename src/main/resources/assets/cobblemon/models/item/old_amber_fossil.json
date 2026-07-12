@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/fossils/old_amber_fossil"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/fossils/old_amber_fossil","layer0":"cobblemon:item/fossils/old_amber_fossil"}}

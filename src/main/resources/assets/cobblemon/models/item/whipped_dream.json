@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/evolution/whipped_dream"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/evolution/whipped_dream","layer0":"cobblemon:item/evolution/whipped_dream"}}

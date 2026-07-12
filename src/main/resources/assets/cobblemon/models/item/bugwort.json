@@ -1,1 +1,1 @@
-{"parent":"cobblemon:item/handheld_rotated","textures":{"layer0":"cobblemon:item/bugwort"}}
+{"parent":"cobblemon:item/handheld_rotated","textures":{"particle":"cobblemon:item/bugwort","layer0":"cobblemon:item/bugwort"}}

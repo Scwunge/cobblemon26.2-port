@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/fossils/skull_fossil"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/fossils/skull_fossil","layer0":"cobblemon:item/fossils/skull_fossil"}}

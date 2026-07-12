@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/evolution/dusk_stone"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/evolution/dusk_stone","layer0":"cobblemon:item/evolution/dusk_stone"}}

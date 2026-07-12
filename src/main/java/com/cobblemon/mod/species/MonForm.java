@@ -71,10 +71,12 @@ public enum MonForm implements StringRepresentable {
         return NORMAL;
     }
 
-    /** Wild roll: ~1/64 shiny, ~1/40 alpha, ~1/50 shadow, else normal. */
+    /** Default wild shiny odds (Gen 6+ base rate). Master Ball does not affect this. */
+    public static final int SHINY_ODDS = 4096;
+
+    /** Wild roll: 1/4096 shiny, ~1/40 alpha, ~1/50 shadow, else normal. */
     public static MonForm rollWild(RandomSource random) {
-        int r = random.nextInt(64);
-        if (r == 0) {
+        if (random.nextInt(SHINY_ODDS) == 0) {
             return SHINY;
         }
         if (random.nextInt(40) == 0) {
@@ -84,5 +86,10 @@ public enum MonForm implements StringRepresentable {
             return SHADOW;
         }
         return NORMAL;
+    }
+
+    /** True for the shiny recolor form. */
+    public boolean isShiny() {
+        return this == SHINY;
     }
 }

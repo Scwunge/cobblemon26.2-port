@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/food/old_gateau"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/food/old_gateau","layer0":"cobblemon:item/food/old_gateau"}}

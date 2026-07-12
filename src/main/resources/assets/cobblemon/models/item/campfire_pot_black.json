@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/campfire_pots/campfire_pot_black"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/campfire_pots/campfire_pot_black","layer0":"cobblemon:item/campfire_pots/campfire_pot_black"}}

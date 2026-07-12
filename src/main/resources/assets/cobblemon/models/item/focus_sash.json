@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/held_items/focus_sash"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/held_items/focus_sash","layer0":"cobblemon:item/held_items/focus_sash"}}

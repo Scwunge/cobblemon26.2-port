@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/held_items/absorb_bulb"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/held_items/absorb_bulb","layer0":"cobblemon:item/held_items/absorb_bulb"}}

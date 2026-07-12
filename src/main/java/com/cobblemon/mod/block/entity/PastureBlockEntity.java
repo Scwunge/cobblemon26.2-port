@@ -56,7 +56,30 @@ public class PastureBlockEntity extends BlockEntity {
         return Optional.of(mon);
     }
 
+    /** Ticks between automatic breed attempts (~2 minutes). */
+    public static final int BREED_INTERVAL_TICKS = 20 * 120;
     private int breedTicks;
+
+    /** 0..1 progress toward next automatic breed check. */
+    public float breedProgress() {
+        return Math.min(1f, breedTicks / (float) BREED_INTERVAL_TICKS);
+    }
+
+    public int breedTicksRemaining() {
+        return Math.max(0, BREED_INTERVAL_TICKS - breedTicks);
+    }
+
+    /** True if at least one compatible opposite-gender same-species pair is stored. */
+    public boolean hasCompatiblePair() {
+        for (int i = 0; i < mons.size(); i++) {
+            for (int j = i + 1; j < mons.size(); j++) {
+                if (canBreed(mons.get(i), mons.get(j))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
 
     /** Called from server tick — heal stored mons every few seconds; breed compatible pairs. */
     public void serverTickHeal() {
@@ -91,19 +114,39 @@ public class PastureBlockEntity extends BlockEntity {
                 setChanged();
             }
         }
-        // Breeding: every ~2 minutes with 2+ compatible opposite-gender mons
+        // Breeding: every ~2 minutes with 2+ compatible opposite-gender mons → egg item
         breedTicks++;
-        if (breedTicks >= 20 * 120 && !isFull() && mons.size() >= 2) {
+        if (breedTicks >= BREED_INTERVAL_TICKS && mons.size() >= 2) {
             breedTicks = 0;
-            tryBreed(net.minecraft.util.RandomSource.create());
+            tryBreed(net.minecraft.util.RandomSource.create(), false);
         }
     }
 
     /**
-     * If two opposite-gender mons of the same species (or both Ditto-adjacent) sit in the pasture,
-     * produce an egg-level offspring at Lv.1 with mixed IVs.
+     * GUI / debug: attempt an egg immediately if a compatible pair exists.
+     *
+     * @return true if an egg was produced
      */
-    private void tryBreed(net.minecraft.util.RandomSource random) {
+    public boolean forceBreedAttempt(net.minecraft.util.RandomSource random) {
+        boolean ok = tryBreed(random, true);
+        if (ok) {
+            breedTicks = 0;
+        }
+        return ok;
+    }
+
+    /**
+     * If two opposite-gender mons of the same species sit in the pasture,
+     * produce a {@link com.cobblemon.mod.item.PokemonEggItem} (not an instant mon).
+     * Egg goes to nearest player inventory, else drops above the pasture.
+     *
+     * @param guaranteed if true, skip the 35% chance roll (used by ranch GUI "Breed" button)
+     * @return true if an egg was created
+     */
+    private boolean tryBreed(net.minecraft.util.RandomSource random, boolean guaranteed) {
+        if (level == null || level.isClientSide()) {
+            return false;
+        }
         for (int i = 0; i < mons.size(); i++) {
             for (int j = i + 1; j < mons.size(); j++) {
                 OwnedMon a = mons.get(i);
@@ -111,21 +154,61 @@ public class PastureBlockEntity extends BlockEntity {
                 if (!canBreed(a, b)) {
                     continue;
                 }
-                if (random.nextFloat() > 0.35f) {
-                    continue; // chance per check
+                if (!guaranteed && random.nextFloat() > 0.35f) {
+                    continue; // chance per auto check
                 }
-                // Offspring species = mother (female) when possible
-                OwnedMon mother = a.gender() == com.cobblemon.mod.species.MonGender.FEMALE ? a
-                        : (b.gender() == com.cobblemon.mod.species.MonGender.FEMALE ? b : a);
-                // createWild rolls IVs; breedIvs mixes parents for a second roll preference
-                OwnedMon baby = OwnedMon.createWild(mother.speciesId(), 1, random)
-                        .withNickname("")
-                        .withIvs(OwnedMon.breedIvs(a.ivs(), b.ivs(), random));
-                if (deposit(baby)) {
-                    return;
-                }
+                net.minecraft.world.item.ItemStack egg =
+                        com.cobblemon.mod.item.PokemonEggItem.createFromBreed(a, b, random);
+                deliverEgg(egg, a, b);
+                return true;
             }
         }
+        return false;
+    }
+
+    private void deliverEgg(net.minecraft.world.item.ItemStack egg, OwnedMon a, OwnedMon b) {
+        if (level == null || egg.isEmpty()) {
+            return;
+        }
+        String species = com.cobblemon.mod.item.PokemonEggItem.speciesId(egg);
+        // Prefer nearest player within 12 blocks
+        net.minecraft.world.entity.player.Player nearest = null;
+        double best = 12.0 * 12.0;
+        BlockPos pos = getBlockPos();
+        for (net.minecraft.world.entity.player.Player p : level.players()) {
+            double d = p.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
+            if (d <= best) {
+                best = d;
+                nearest = p;
+            }
+        }
+        if (nearest instanceof net.minecraft.server.level.ServerPlayer sp) {
+            if (sp.getInventory().add(egg.copy())) {
+                sp.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
+                        "message.cobblemon.pasture_egg",
+                        a.displayName(),
+                        b.displayName(),
+                        com.cobblemon.mod.species.SpeciesHandle.of(species).displayName()
+                ));
+                level.playSound(null, pos, net.minecraft.sounds.SoundEvents.CHICKEN_EGG,
+                        net.minecraft.sounds.SoundSource.BLOCKS, 0.7f, 1.0f);
+                setChanged();
+                return;
+            }
+        }
+        // Drop above pasture
+        net.minecraft.world.entity.item.ItemEntity dropped = new net.minecraft.world.entity.item.ItemEntity(
+                level,
+                pos.getX() + 0.5,
+                pos.getY() + 1.1,
+                pos.getZ() + 0.5,
+                egg
+        );
+        dropped.setDefaultPickUpDelay();
+        level.addFreshEntity(dropped);
+        level.playSound(null, pos, net.minecraft.sounds.SoundEvents.CHICKEN_EGG,
+                net.minecraft.sounds.SoundSource.BLOCKS, 0.7f, 1.0f);
+        setChanged();
     }
 
     private static boolean canBreed(OwnedMon a, OwnedMon b) {

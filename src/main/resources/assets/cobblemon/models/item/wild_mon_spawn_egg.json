@@ -1,1 +1,1 @@
-{"textures":{"layer0":"cobblemon:item/poke_balls/poke_ball"},"parent":"minecraft:item/generated"}
+{"textures":{"particle":"cobblemon:item/poke_balls/poke_ball","layer0":"cobblemon:item/poke_balls/poke_ball"},"parent":"minecraft:item/generated"}

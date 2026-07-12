@@ -260,6 +260,27 @@ function restoreSafePlantBlockstates() {
       });
     }
   }
+  // Machines: official BS uses part/on/charge; our blocks only have FACING.
+  // Full single-block meshes are rotated so FACING = front toward player
+  // (placement uses lookDir.getOpposite()).
+  const faceOnly = (model) => ({
+    "facing=north": { model },
+    "facing=south": { model, y: 180 },
+    "facing=west": { model, y: 270 },
+    "facing=east": { model, y: 90 },
+  });
+  const machineModels = {
+    pc: "cobblemon:block/pc",
+    healing_machine: "cobblemon:block/healing_machine_0",
+    fossil_analyzer: "cobblemon:block/fossil_analyzer",
+    pasture: "cobblemon:block/pasture",
+    restoration_tank: "cobblemon:block/restoration_tank",
+    monitor: "cobblemon:block/monitor",
+    display_case: "cobblemon:block/display_case",
+  };
+  for (const [id, model] of Object.entries(machineModels)) {
+    writeJsonIfChanged(path.join(bsDir, id + ".json"), { variants: faceOnly(model) });
+  }
   // Fix mint parent model texture paths: cobblemon:blocks/ → cobblemon:block/
   const modelsDir = path.join(ASSETS, "models", "block");
   if (fs.existsSync(modelsDir)) {
@@ -644,6 +665,20 @@ function main() {
 
   // Also ensure block items have items/*.json
   generateItemDefinitions(blocks);
+
+  // Balls + Pokédex: GUI flat icon, hand/world 3D (generateItemDefinitions would flatten them)
+  console.log("[content] wire ball + pokedex item models (2D gui / 3D world)");
+  for (const script of ["wire_ball_item_models.js", "wire_pokedex_item_models.js"]) {
+    try {
+      require("child_process").execFileSync(
+        process.execPath,
+        [path.join(__dirname, script)],
+        { stdio: "inherit", cwd: ROOT }
+      );
+    } catch (e) {
+      console.warn("  " + script + " failed:", e.message);
+    }
+  }
 
   // Summary report
   const report = {

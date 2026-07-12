@@ -1,1 +1,1 @@
-{"parent":"cobblemon:item/ancient_slate_rod","textures":{"layer0":"cobblemon:item/fishing/ancient_slate_rod_cast"}}
+{"parent":"cobblemon:item/ancient_slate_rod","textures":{"particle":"cobblemon:item/fishing/ancient_slate_rod_cast","layer0":"cobblemon:item/fishing/ancient_slate_rod_cast"}}

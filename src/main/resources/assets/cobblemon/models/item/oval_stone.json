@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/evolution/oval_stone"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/evolution/oval_stone","layer0":"cobblemon:item/evolution/oval_stone"}}

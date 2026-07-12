@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/medicine/iron"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/medicine/iron","layer0":"cobblemon:item/medicine/iron"}}

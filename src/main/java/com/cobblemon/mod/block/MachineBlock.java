@@ -44,7 +44,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  */
 public class MachineBlock extends HorizontalDirectionalBlock implements EntityBlock {
     public enum Kind {
-        HEAL, PASTURE, FOSSIL, RESTORATION, MONITOR, DISPLAY, GENERIC
+        HEAL, PASTURE, FOSSIL, RESTORATION, MONITOR, DISPLAY, COOKING, GENERIC
     }
 
     public static final MapCodec<MachineBlock> CODEC = simpleCodec(props -> new MachineBlock(props, Kind.GENERIC));
@@ -77,7 +77,7 @@ public class MachineBlock extends HorizontalDirectionalBlock implements EntityBl
     protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
         return switch (kind) {
             case HEAL -> SHAPE_HEAL;
-            case PASTURE, FOSSIL, RESTORATION, MONITOR -> SHAPE_TALL;
+            case PASTURE, FOSSIL, RESTORATION, MONITOR, COOKING -> SHAPE_TALL;
             default -> SHAPE_FULL;
         };
     }
@@ -160,25 +160,25 @@ public class MachineBlock extends HorizontalDirectionalBlock implements EntityBl
                 yield InteractionResult.SUCCESS;
             }
             case PASTURE -> {
-                // Sneak = deposit lead; bare use = list, second use withdraws last
+                // Sneak = quick deposit lead (no GUI); bare use opens ranch GUI (E4)
                 if (player.isShiftKeyDown()) {
-                    yield pastureDeposit(level, pos, sp);
+                    InteractionResult dep = pastureDeposit(level, pos, sp);
+                    if (level.getBlockEntity(pos) instanceof PastureBlockEntity pasture) {
+                        com.cobblemon.mod.network.OpenPasturePayload.send(sp, pasture);
+                    }
+                    yield dep;
                 }
                 if (level.getBlockEntity(pos) instanceof PastureBlockEntity pasture) {
-                    if (pasture.size() == 0) {
-                        pasture.sendListing(sp);
-                        yield InteractionResult.SUCCESS;
-                    }
-                    // List first; if player is holding nothing special and pasture has mons, withdraw
-                    if (!player.getMainHandItem().isEmpty()) {
-                        pasture.sendListing(sp);
-                        yield InteractionResult.SUCCESS;
-                    }
-                    yield pastureWithdraw(level, pos, sp);
+                    com.cobblemon.mod.network.OpenPasturePayload.send(sp, pasture);
+                    yield InteractionResult.SUCCESS;
                 }
                 yield InteractionResult.FAIL;
             }
             case FOSSIL, RESTORATION -> fossilEmptyHand(level, pos, sp);
+            case COOKING -> {
+                // K1 — simple campfire pot: consume berry in hand → cooked snack heal item
+                yield cookBerry(level, pos, sp);
+            }
             case MONITOR -> {
                 // Field scanner: party + nearby wild density
                 PlayerParty party = PartyHelper.get(sp);
@@ -283,6 +283,9 @@ public class MachineBlock extends HorizontalDirectionalBlock implements EntityBl
                 }
             }
             return fossilEmptyHand(level, pos, sp);
+        }
+        if (kind == Kind.COOKING) {
+            return cookBerry(level, pos, sp);
         }
         // Let empty-hand path run for heal / pasture / monitor / display
         return InteractionResult.TRY_WITH_EMPTY_HAND;
@@ -463,6 +466,9 @@ public class MachineBlock extends HorizontalDirectionalBlock implements EntityBl
 
     public static Kind kindForId(String id) {
         if (id == null) return null;
+        if (id.startsWith("campfire_pot")) {
+            return Kind.COOKING;
+        }
         return switch (id) {
             case "healing_machine" -> Kind.HEAL;
             case "pasture" -> Kind.PASTURE;
@@ -472,5 +478,38 @@ public class MachineBlock extends HorizontalDirectionalBlock implements EntityBl
             case "display_case" -> Kind.DISPLAY;
             default -> null;
         };
+    }
+
+    /** K1 — berry in main hand + pot → cooked berry snack (heal party lead 25% HP). */
+    private InteractionResult cookBerry(Level level, BlockPos pos, ServerPlayer sp) {
+        var stack = sp.getMainHandItem();
+        String path = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).getPath();
+        if (stack.isEmpty() || !path.contains("berry")) {
+            sp.sendSystemMessage(Component.literal(
+                    "§eHold a Berry and use the pot to cook a healing snack."));
+            return InteractionResult.SUCCESS;
+        }
+        if (!sp.getAbilities().instabuild) {
+            stack.shrink(1);
+        }
+        // Heal lead mon 25% max HP
+        var party = PartyHelper.get(sp).copy();
+        if (party.isEmpty()) {
+            sp.sendSystemMessage(Component.literal("§cNo Pokémon to feed."));
+            return InteractionResult.SUCCESS;
+        }
+        var lead = party.get(0).orElse(null);
+        if (lead == null || lead.isFainted()) {
+            sp.sendSystemMessage(Component.literal("§cLead Pokémon can't eat right now."));
+            return InteractionResult.SUCCESS;
+        }
+        int heal = Math.max(1, lead.maxHp() / 4);
+        party.set(0, lead.withHp(Math.min(lead.maxHp(), lead.hp() + heal)));
+        PartyHelper.set(sp, party);
+        level.playSound(null, pos, SoundEvents.GENERIC_EAT.value(), SoundSource.BLOCKS, 0.8f, 1.1f);
+        level.playSound(null, pos, SoundEvents.FIRE_AMBIENT, SoundSource.BLOCKS, 0.4f, 1.3f);
+        sp.sendSystemMessage(Component.literal(
+                "§aCooked the berry! " + lead.displayName().getString() + " recovered " + heal + " HP."));
+        return InteractionResult.SUCCESS;
     }
 }

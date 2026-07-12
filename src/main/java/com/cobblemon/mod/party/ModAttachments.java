@@ -45,5 +45,15 @@ public final class ModAttachments {
                     .build()
     );
 
+    /** N3 — gym badges / story progress. */
+    public static final Supplier<AttachmentType<PlayerBadges>> BADGES = ATTACHMENT_TYPES.register(
+            "badges",
+            () -> AttachmentType.builder(PlayerBadges::empty)
+                    .serialize(PlayerBadges.CODEC.fieldOf("badges"))
+                    .copyOnDeath()
+                    .sync((holder, to) -> holder == to, PlayerBadges.STREAM_CODEC)
+                    .build()
+    );
+
     private ModAttachments() {}
 }

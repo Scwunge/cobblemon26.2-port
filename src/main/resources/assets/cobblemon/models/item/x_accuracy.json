@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/battle_items/x_accuracy"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/battle_items/x_accuracy","layer0":"cobblemon:item/battle_items/x_accuracy"}}

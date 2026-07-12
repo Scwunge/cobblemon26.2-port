@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/poke_puffs/poke_puff_base_dry","layer1":"cobblemon:item/poke_puffs/overlay_love"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/poke_puffs/poke_puff_base_dry","layer0":"cobblemon:item/poke_puffs/poke_puff_base_dry","layer1":"cobblemon:item/poke_puffs/overlay_love"}}

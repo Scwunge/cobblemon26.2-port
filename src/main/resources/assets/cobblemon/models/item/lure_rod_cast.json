@@ -1,1 +1,1 @@
-{"parent":"cobblemon:item/lure_rod","textures":{"layer0":"cobblemon:item/fishing/lure_rod_cast"}}
+{"parent":"cobblemon:item/lure_rod","textures":{"particle":"cobblemon:item/fishing/lure_rod_cast","layer0":"cobblemon:item/fishing/lure_rod_cast"}}

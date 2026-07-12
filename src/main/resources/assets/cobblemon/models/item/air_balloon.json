@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/held_items/air_balloon"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/held_items/air_balloon","layer0":"cobblemon:item/held_items/air_balloon"}}

@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/food/shalour_sable"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/food/shalour_sable","layer0":"cobblemon:item/food/shalour_sable"}}

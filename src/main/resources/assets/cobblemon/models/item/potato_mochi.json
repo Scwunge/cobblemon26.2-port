@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/food/potato_mochi"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/food/potato_mochi","layer0":"cobblemon:item/food/potato_mochi"}}

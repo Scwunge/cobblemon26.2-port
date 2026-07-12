@@ -73,6 +73,15 @@ public final class ModKeyMappings {
             CATEGORY
     );
 
+    /** P1 — PokéNav interaction wheel */
+    public static final KeyMapping OPEN_POKENAV = new KeyMapping(
+            "key.cobblemon.open_pokenav",
+            KeyConflictContext.IN_GAME,
+            InputConstants.Type.KEYSYM,
+            InputConstants.KEY_N,
+            CATEGORY
+    );
+
     private ModKeyMappings() {}
 
     @SubscribeEvent
@@ -85,5 +94,6 @@ public final class ModKeyMappings {
         event.register(TOGGLE_HUD);
         event.register(OPEN_POKEDEX);
         event.register(RIDE);
+        event.register(OPEN_POKENAV);
     }
 }

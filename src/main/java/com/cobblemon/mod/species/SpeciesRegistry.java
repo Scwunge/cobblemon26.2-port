@@ -40,7 +40,9 @@ public final class SpeciesRegistry {
             List<String> labels,
             List<String> abilities,
             CobblemonBaseStats.Six baseStats,
-            List<String> levelMoves
+            List<String> levelMoves,
+            /** Official egg-move ids (no prefix), empty if unknown. */
+            List<String> eggMoves
     ) {
         public MonElement primaryElement() {
             MonElement el = MonElement.byId(primaryType);
@@ -116,6 +118,11 @@ public final class SpeciesRegistry {
             List<String> labels = stringList(j, "labels");
             List<String> abilities = stringList(j, "abilities");
             List<String> moves = stringList(j, "moves");
+            List<String> eggMoves = stringList(j, "eggMoves").stream()
+                    .map(s -> s == null ? "" : s.toLowerCase(Locale.ROOT).trim())
+                    .filter(s -> !s.isEmpty())
+                    .map(s -> s.startsWith("egg:") ? s.substring(4) : s)
+                    .toList();
             String secondary = j.has("secondaryType") && !j.get("secondaryType").isJsonNull()
                     ? j.get("secondaryType").getAsString()
                     : null;
@@ -136,7 +143,8 @@ public final class SpeciesRegistry {
                     labels,
                     abilities,
                     six,
-                    moves
+                    moves,
+                    eggMoves
             );
         } catch (Exception e) {
             return null;

@@ -9,6 +9,7 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
 import com.cobblemon.mod.species.OwnedMon;
+import com.cobblemon.mod.util.DataKeys;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
@@ -26,11 +27,22 @@ public final class PlayerPc {
             "default", "forest", "cave", "ocean", "nether", "end"
     };
 
+    /**
+     * Dual-read BoxName/BoxWallpaper vs legacy boxNames/wallpapers in one codec
+     * (optional-field withAlternative would succeed empty and drop legacy values).
+     * Flat slot list index = box * BOX_SIZE + slot; STORE_BOX/STORE_SLOT not per-entry yet.
+     */
     public static final Codec<PlayerPc> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             Slot.CODEC.listOf().fieldOf("slots").forGetter(PlayerPc::slotList),
-            Codec.STRING.listOf().optionalFieldOf("boxNames", List.of()).forGetter(PlayerPc::boxNameList),
-            Codec.STRING.listOf().optionalFieldOf("wallpapers", List.of()).forGetter(PlayerPc::wallpaperList)
-    ).apply(instance, PlayerPc::fromCodec));
+            Codec.STRING.listOf().optionalFieldOf(DataKeys.STORE_BOX_NAME).forGetter(p -> Optional.of(p.boxNameList())),
+            Codec.STRING.listOf().optionalFieldOf("boxNames").forGetter(p -> Optional.empty()),
+            Codec.STRING.listOf().optionalFieldOf(DataKeys.STORE_BOX_WALLPAPER).forGetter(p -> Optional.of(p.wallpaperList())),
+            Codec.STRING.listOf().optionalFieldOf("wallpapers").forGetter(p -> Optional.empty())
+    ).apply(instance, (slots, namesModern, namesLegacy, wallsModern, wallsLegacy) -> fromCodec(
+            slots,
+            namesModern.or(() -> namesLegacy).orElse(List.of()),
+            wallsModern.or(() -> wallsLegacy).orElse(List.of())
+    )));
 
     public static final StreamCodec<ByteBuf, PlayerPc> STREAM_CODEC = StreamCodec.composite(
             Slot.STREAM_CODEC.apply(ByteBufCodecs.list(TOTAL_SLOTS)),
@@ -287,11 +299,16 @@ public final class PlayerPc {
         return Collections.unmodifiableList(list);
     }
 
-    /** Codec helper for one PC slot. */
+    /**
+     * Codec helper for one PC slot.
+     * Writes {@link DataKeys#POKEMON}; still reads legacy {@code mon}.
+     * Slot index is implicit from list order (STORE_SLOT / STORE_BOX not encoded per entry).
+     */
     public record Slot(Optional<OwnedMon> mon) {
         public static final Codec<Slot> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-                OwnedMon.CODEC.optionalFieldOf("mon").forGetter(Slot::mon)
-        ).apply(instance, Slot::new));
+                OwnedMon.CODEC.optionalFieldOf(DataKeys.POKEMON).forGetter(s -> s.mon()),
+                OwnedMon.CODEC.optionalFieldOf("mon").forGetter(s -> Optional.empty())
+        ).apply(instance, (pokemon, monLegacy) -> new Slot(pokemon.or(() -> monLegacy))));
 
         public static final StreamCodec<ByteBuf, Slot> STREAM_CODEC = StreamCodec.composite(
                 ByteBufCodecs.optional(OwnedMon.STREAM_CODEC),

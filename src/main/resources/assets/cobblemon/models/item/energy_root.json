@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/medicine/energy_root"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/medicine/energy_root","layer0":"cobblemon:item/medicine/energy_root"}}

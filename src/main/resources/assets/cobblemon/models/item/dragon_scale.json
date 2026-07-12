@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/evolution/dragon_scale"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/evolution/dragon_scale","layer0":"cobblemon:item/evolution/dragon_scale"}}

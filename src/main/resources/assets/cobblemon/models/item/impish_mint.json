@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/mints/impish_mint"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/mints/impish_mint","layer0":"cobblemon:item/mints/impish_mint"}}

@@ -1,1 +1,1 @@
-{"parent":"cobblemon:item/handheld_rotated","textures":{"layer0":"cobblemon:item/food/roasted_leek"}}
+{"parent":"cobblemon:item/handheld_rotated","textures":{"particle":"cobblemon:item/food/roasted_leek","layer0":"cobblemon:item/food/roasted_leek"}}

@@ -1,1 +1,1 @@
-{"model":{"type":"minecraft:model","model":"cobblemon:item/pokedex_black"}}
+{"model":{"type":"minecraft:select","property":"minecraft:display_context","cases":[{"when":["gui","fixed"],"model":{"type":"minecraft:model","model":"cobblemon:item/pokedex_black"}}],"fallback":{"type":"minecraft:model","model":"cobblemon:item/pokedex_black_model"}}}

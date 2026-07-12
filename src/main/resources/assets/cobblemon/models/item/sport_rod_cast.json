@@ -1,1 +1,1 @@
-{"parent":"cobblemon:item/sport_rod","textures":{"layer0":"cobblemon:item/fishing/sport_rod_cast"}}
+{"parent":"cobblemon:item/sport_rod","textures":{"particle":"cobblemon:item/fishing/sport_rod_cast","layer0":"cobblemon:item/fishing/sport_rod_cast"}}

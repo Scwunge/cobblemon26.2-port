@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/medicine/heal_powder"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/medicine/heal_powder","layer0":"cobblemon:item/medicine/heal_powder"}}

@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/evolution/upgrade"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/evolution/upgrade","layer0":"cobblemon:item/evolution/upgrade"}}

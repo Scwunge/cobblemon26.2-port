@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/held_items/blunder_policy"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/held_items/blunder_policy","layer0":"cobblemon:item/held_items/blunder_policy"}}

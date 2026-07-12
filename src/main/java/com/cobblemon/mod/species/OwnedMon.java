@@ -2,6 +2,7 @@ package com.cobblemon.mod.species;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -11,6 +12,7 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import com.cobblemon.mod.battle.Learnsets;
 import com.cobblemon.mod.battle.MonMove;
 import com.cobblemon.mod.battle.MoveAliases;
+import com.cobblemon.mod.util.DataKeys;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.network.chat.Component;
@@ -26,8 +28,34 @@ public final class OwnedMon {
     public static final int MAX_MOVES = 4;
     public static final int MAX_LEVEL = 100;
 
-    public static final Codec<OwnedMon> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+    /**
+     * Persistence codec using official-style {@link DataKeys} field names.
+     * Decodes legacy lowercase keys via {@link Codec#withAlternative} so existing worlds keep working.
+     * New writes use the modern keys only.
+     */
+    private static final Codec<OwnedMon> CODEC_MODERN = RecordCodecBuilder.create(instance -> instance.group(
             // CRITICAL: use speciesId (full dex), never Gen1 enum stand-in (solrock→geodude, etc.)
+            Codec.STRING.fieldOf(DataKeys.POKEMON_SPECIES_IDENTIFIER).forGetter(OwnedMon::speciesId),
+            Codec.STRING.optionalFieldOf(DataKeys.POKEMON_NICKNAME, "").forGetter(OwnedMon::nickname),
+            Codec.INT.fieldOf(DataKeys.POKEMON_LEVEL).forGetter(OwnedMon::level),
+            Codec.INT.fieldOf(DataKeys.POKEMON_HEALTH).forGetter(OwnedMon::hp),
+            Codec.INT.fieldOf(DataKeys.POKEMON_EXPERIENCE).forGetter(OwnedMon::exp),
+            UUIDUtil.CODEC.fieldOf(DataKeys.POKEMON_UUID).forGetter(OwnedMon::uuid),
+            Codec.STRING.listOf().optionalFieldOf(DataKeys.POKEMON_MOVESET, List.of()).forGetter(m -> m.moveIds),
+            Codec.INT.listOf().optionalFieldOf(DataKeys.POKEMON_MOVESET_MOVEPP, List.of()).forGetter(m -> m.movePp),
+            Codec.STRING.optionalFieldOf(DataKeys.POKEMON_NATURE, Nature.HARDY.getSerializedName()).forGetter(m -> m.nature.getSerializedName()),
+            Codec.STRING.optionalFieldOf(DataKeys.POKEMON_GENDER, MonGender.GENDERLESS.id()).forGetter(m -> m.gender.id()),
+            Codec.STRING.optionalFieldOf(DataKeys.POKEMON_FORM_ID, MonForm.NORMAL.id()).forGetter(m -> m.form.id()),
+            Codec.STRING.optionalFieldOf(DataKeys.POKEMON_ABILITY_NAME, "").forGetter(m -> m.ability.id()),
+            Codec.FLOAT.optionalFieldOf(DataKeys.POKEMON_SCALE_MODIFIER, 1.0f).forGetter(OwnedMon::sizeScale),
+            Codec.STRING.optionalFieldOf(DataKeys.POKEMON_STATUS_NAME, MonStatus.NONE.id()).forGetter(m -> m.status.id()),
+            Codec.STRING.optionalFieldOf(DataKeys.HELD_ITEM, "").forGetter(OwnedMon::heldItem),
+            // Nested to stay within RecordCodecBuilder's 16-field limit
+            Genetics.CODEC.optionalFieldOf("genetics", Genetics.EMPTY).forGetter(OwnedMon::genetics)
+    ).apply(instance, OwnedMon::fromCodec));
+
+    /** Pre-DataKeys field names (species/level/hp/…); kept for world migration. */
+    private static final Codec<OwnedMon> CODEC_LEGACY = RecordCodecBuilder.create(instance -> instance.group(
             Codec.STRING.fieldOf("species").forGetter(OwnedMon::speciesId),
             Codec.STRING.optionalFieldOf("nickname", "").forGetter(OwnedMon::nickname),
             Codec.INT.fieldOf("level").forGetter(OwnedMon::level),
@@ -43,9 +71,10 @@ public final class OwnedMon {
             Codec.FLOAT.optionalFieldOf("sizeScale", 1.0f).forGetter(OwnedMon::sizeScale),
             Codec.STRING.optionalFieldOf("status", MonStatus.NONE.id()).forGetter(m -> m.status.id()),
             Codec.STRING.optionalFieldOf("heldItem", "").forGetter(OwnedMon::heldItem),
-            // Nested to stay within RecordCodecBuilder's 16-field limit
             Genetics.CODEC.optionalFieldOf("genetics", Genetics.EMPTY).forGetter(OwnedMon::genetics)
     ).apply(instance, OwnedMon::fromCodec));
+
+    public static final Codec<OwnedMon> CODEC = Codec.withAlternative(CODEC_MODERN, CODEC_LEGACY);
 
     public static final StreamCodec<ByteBuf, OwnedMon> STREAM_CODEC = StreamCodec.of(
             OwnedMon::encode,
@@ -73,6 +102,8 @@ public final class OwnedMon {
     private final int[] ivs;
     /** Same order — 0–252 each, total ≤ 510. */
     private final int[] evs;
+    /** C2 mark id (e.g. mark_fishing), blank if none. Stored under genetics. */
+    private final String mark;
 
     public OwnedMon(
             MonSpecies species,
@@ -177,6 +208,31 @@ public final class OwnedMon {
             int[] ivs,
             int[] evs
     ) {
+        this(speciesId, species, nickname, level, hp, exp, uuid, moveIds, movePp,
+                nature, gender, form, ability, sizeScale, status, heldItem, ivs, evs, "");
+    }
+
+    private OwnedMon(
+            String speciesId,
+            MonSpecies species,
+            String nickname,
+            int level,
+            int hp,
+            int exp,
+            UUID uuid,
+            List<String> moveIds,
+            List<Integer> movePp,
+            Nature nature,
+            MonGender gender,
+            MonForm form,
+            Ability ability,
+            float sizeScale,
+            MonStatus status,
+            String heldItem,
+            int[] ivs,
+            int[] evs,
+            String mark
+    ) {
         this.species = species == null ? MonSpecies.RATTATA : species;
         this.speciesId = speciesId == null || speciesId.isBlank() ? this.species.id() : speciesId;
         this.nickname = nickname == null ? "" : nickname;
@@ -194,10 +250,13 @@ public final class OwnedMon {
         this.heldItem = heldItem == null ? "" : heldItem;
         this.ivs = StatBlock.normalizeSix(ivs, 0, StatBlock.IV_MAX, 15);
         this.evs = clampEvs(StatBlock.normalizeSix(evs, 0, StatBlock.EV_MAX_STAT, 0));
+        this.mark = mark == null ? "" : mark;
         this.moveIds = normalizeMoves(this.speciesId, this.level, moveIds);
         this.movePp = normalizePp(this.moveIds, movePp);
         int max = stats().hp();
-        this.hp = Math.max(0, Math.min(max, hp <= 0 ? max : hp));
+        // Allow 0 HP (fainted). Negative hp means "fill to max" for legacy create helpers.
+        // IMPORTANT: hp<=0 used to force max — that made lethal hits fully heal the mon.
+        this.hp = hp < 0 ? max : Math.max(0, Math.min(max, hp));
     }
 
     private static int[] clampEvs(int[] ev) {
@@ -237,15 +296,50 @@ public final class OwnedMon {
                 ? handle.defaultAbility()
                 : Ability.byId(ability);
         Genetics g = genetics == null ? Genetics.EMPTY : genetics;
+        // Dual-read shiny: FormId "shiny" OR genetics.Shiny / legacy shiny boolean
+        MonForm resolvedForm = resolveForm(form, g.shiny());
         return new OwnedMon(
                 handle.id(), sp, nickname, level, hp, exp, uuid, moves, movePp,
-                Nature.byId(nature), MonGender.byId(gender), MonForm.byId(form), ab, size,
-                MonStatus.byId(status), heldItem == null ? "" : heldItem, g.ivArray(), g.evArray()
+                Nature.byId(nature), MonGender.byId(gender), resolvedForm, ab, size,
+                MonStatus.byId(status), heldItem == null ? "" : heldItem, g.ivArray(), g.evArray(),
+                g.mark() == null ? "" : g.mark()
         );
     }
 
+    public String mark() {
+        return mark == null ? "" : mark;
+    }
+
+    public boolean hasMark() {
+        return mark != null && !mark.isBlank();
+    }
+
+    public OwnedMon withMark(String markId) {
+        String m = markId == null ? "" : markId;
+        if (m.equals(this.mark)) {
+            return this;
+        }
+        return new OwnedMon(
+                speciesId(), species, nickname, level, hp, exp, uuid, moveIds, movePp,
+                nature, gender, form, ability, sizeScale, status, heldItem, ivs, evs, m
+        );
+    }
+
+    /**
+     * FormId is primary; optional {@link DataKeys#POKEMON_SHINY} (stored under genetics for field-count)
+     * upgrades NORMAL → SHINY when true. Alpha/shadow forms are left as-is.
+     */
+    private static MonForm resolveForm(String formId, boolean shinyFlag) {
+        MonForm f = MonForm.byId(formId);
+        if (shinyFlag && f == MonForm.NORMAL) {
+            return MonForm.SHINY;
+        }
+        return f;
+    }
+
     private Genetics genetics() {
-        return new Genetics(ivList(), evList());
+        // Persist shiny + mark under genetics (field-count limit on OwnedMon root)
+        return new Genetics(ivList(), evList(), form == MonForm.SHINY, mark == null ? "" : mark);
     }
 
     private List<Integer> ivList() {
@@ -256,13 +350,41 @@ public final class OwnedMon {
         return List.of(evs[0], evs[1], evs[2], evs[3], evs[4], evs[5]);
     }
 
-    /** Nested IV/EV blob for codec (keeps OwnedMon field count ≤ 16). */
-    public record Genetics(List<Integer> ivs, List<Integer> evs) {
-        public static final Genetics EMPTY = new Genetics(List.of(), List.of());
+    /**
+     * Nested IV/EV + shiny blob for codec (keeps OwnedMon field count ≤ 16).
+     * Shiny is dual-read with {@link DataKeys#POKEMON_SHINY} / legacy {@code shiny}
+     * and merged with {@link DataKeys#POKEMON_FORM_ID} on decode.
+     */
+    public record Genetics(List<Integer> ivs, List<Integer> evs, boolean shiny, String mark) {
+        public static final Genetics EMPTY = new Genetics(List.of(), List.of(), false, "");
+
+        public Genetics(List<Integer> ivs, List<Integer> evs) {
+            this(ivs, evs, false, "");
+        }
+
+        public Genetics(List<Integer> ivs, List<Integer> evs, boolean shiny) {
+            this(ivs, evs, shiny, "");
+        }
+
+        /**
+         * Dual-read IVs/EVs/shiny: official {@link DataKeys} names preferred on write;
+         * legacy lowercase keys still accepted on read (cannot use {@code withAlternative}
+         * here — optional fields would succeed empty and drop legacy values).
+         */
         public static final Codec<Genetics> CODEC = RecordCodecBuilder.create(i -> i.group(
-                Codec.INT.listOf().optionalFieldOf("ivs", List.of()).forGetter(Genetics::ivs),
-                Codec.INT.listOf().optionalFieldOf("evs", List.of()).forGetter(Genetics::evs)
-        ).apply(i, Genetics::new));
+                Codec.INT.listOf().optionalFieldOf(DataKeys.POKEMON_IVS).forGetter(g -> Optional.of(g.ivs())),
+                Codec.INT.listOf().optionalFieldOf("ivs").forGetter(g -> Optional.empty()),
+                Codec.INT.listOf().optionalFieldOf(DataKeys.POKEMON_EVS).forGetter(g -> Optional.of(g.evs())),
+                Codec.INT.listOf().optionalFieldOf("evs").forGetter(g -> Optional.empty()),
+                Codec.BOOL.optionalFieldOf(DataKeys.POKEMON_SHINY).forGetter(g -> g.shiny() ? Optional.of(true) : Optional.empty()),
+                Codec.BOOL.optionalFieldOf("shiny").forGetter(g -> Optional.empty()),
+                Codec.STRING.optionalFieldOf("mark", "").forGetter(Genetics::mark)
+        ).apply(i, (ivsModern, ivsLegacy, evsModern, evsLegacy, shinyModern, shinyLegacy, mark) -> new Genetics(
+                ivsModern.or(() -> ivsLegacy).orElse(List.of()),
+                evsModern.or(() -> evsLegacy).orElse(List.of()),
+                shinyModern.or(() -> shinyLegacy).orElse(false),
+                mark == null ? "" : mark
+        )));
 
         int[] ivArray() {
             return listToSix(ivs, 15);
@@ -353,8 +475,9 @@ public final class OwnedMon {
             ivs.clear();
             evs.clear();
         }
+        MonForm formDecoded = MonForm.byId(form);
         return fromCodec(speciesId, nickname, level, hp, exp, uuid, moves, pps, nature, gender, form, ability, size, status, held,
-                new Genetics(ivs, evs));
+                new Genetics(ivs, evs, formDecoded == MonForm.SHINY));
     }
 
     private static List<String> normalizeMoves(String speciesId, int level, List<String> raw) {
@@ -364,8 +487,12 @@ public final class OwnedMon {
                 if (id == null || id.isBlank()) {
                     continue;
                 }
-                // Resolve Cobblemon datapack move ids → our MonMove set (ember → ember_snap, etc.)
-                String resolved = MoveAliases.resolve(id).id();
+                // Keep official Showdown / datapack move ids (vinewhip, ember, …).
+                // Battle resolves stats via ShowdownMoveDex; MonMove is only a fallback.
+                String resolved = com.cobblemon.mod.battle.ShowdownMoveDex.canonicalize(id);
+                if (resolved.isEmpty()) {
+                    continue;
+                }
                 if (!out.contains(resolved)) {
                     out.add(resolved);
                 }
@@ -377,14 +504,14 @@ public final class OwnedMon {
         if (out.isEmpty()) {
             String sid = speciesId == null || speciesId.isBlank() ? MonSpecies.RATTATA.id() : speciesId;
             for (MonMove m : Learnsets.movesKnownAtLevel(sid, level)) {
-                out.add(m.id());
+                out.add(com.cobblemon.mod.battle.ShowdownMoveDex.canonicalize(m.id()));
                 if (out.size() >= MAX_MOVES) {
                     break;
                 }
             }
         }
         if (out.isEmpty()) {
-            out.add(MonMove.TACKLE.id());
+            out.add("tackle");
         }
         return List.copyOf(out);
     }
@@ -392,8 +519,8 @@ public final class OwnedMon {
     private static List<Integer> normalizePp(List<String> moves, List<Integer> raw) {
         List<Integer> out = new ArrayList<>(moves.size());
         for (int i = 0; i < moves.size(); i++) {
-            MonMove m = MonMove.byIdOrDefault(moves.get(i));
-            int max = m.defaultMaxPp();
+            com.cobblemon.mod.battle.BattleMove m = com.cobblemon.mod.battle.BattleMove.resolve(moves.get(i));
+            int max = m.getMaxPp();
             int cur = max;
             if (raw != null && i < raw.size() && raw.get(i) != null) {
                 cur = Math.max(0, Math.min(max, raw.get(i)));
@@ -424,7 +551,10 @@ public final class OwnedMon {
         if (form == MonForm.ALPHA) {
             size *= 1.25f;
         }
-        List<String> moves = Learnsets.movesKnownAtLevel(handle.id(), lvl).stream().map(MonMove::id).toList();
+        List<String> moves = com.cobblemon.mod.battle.DatapackLearnsets.battleMovesKnownAtLevel(handle.id(), lvl)
+                .stream()
+                .map(com.cobblemon.mod.battle.BattleMove::getId)
+                .toList();
         int[] ivs = StatBlock.rollIvs(random);
         // Use private ctor so datapack speciesId is preserved (not Gen1 type stand-in)
         OwnedMon mon = new OwnedMon(
@@ -548,6 +678,18 @@ public final class OwnedMon {
         return moveIds.stream().map(MonMove::byIdOrDefault).collect(Collectors.toList());
     }
 
+    /** Moves with Showdown stats when available (preferred for battle). */
+    public List<com.cobblemon.mod.battle.BattleMove> battleMoves() {
+        return moveIds.stream().map(com.cobblemon.mod.battle.BattleMove::resolve).collect(Collectors.toList());
+    }
+
+    public com.cobblemon.mod.battle.BattleMove battleMove(int slot) {
+        if (slot < 0 || slot >= moveIds.size()) {
+            return com.cobblemon.mod.battle.BattleMove.of(MonMove.TACKLE);
+        }
+        return com.cobblemon.mod.battle.BattleMove.resolve(moveIds.get(slot));
+    }
+
     public List<Integer> movePpList() {
         return movePp;
     }
@@ -563,7 +705,15 @@ public final class OwnedMon {
         if (slot < 0 || slot >= moveIds.size()) {
             return 0;
         }
-        return MonMove.byIdOrDefault(moveIds.get(slot)).defaultMaxPp();
+        return battleMove(slot).getMaxPp();
+    }
+
+    public boolean knowsMoveId(String moveId) {
+        if (moveId == null) {
+            return false;
+        }
+        String key = com.cobblemon.mod.battle.ShowdownMoveDex.canonicalize(moveId);
+        return moveIds.contains(key) || moveIds.contains(moveId);
     }
 
     public boolean hasPp(int slot) {
@@ -650,8 +800,48 @@ public final class OwnedMon {
         return gender;
     }
 
+    public OwnedMon withGender(MonGender newGender) {
+        MonGender g = newGender == null ? MonGender.GENDERLESS : newGender;
+        if (g == gender) {
+            return this;
+        }
+        return copy(nickname, level, hp, exp, uuid, moveIds, movePp, nature, g, form, ability, sizeScale, status, heldItem, ivs, evs);
+    }
+
+    public OwnedMon withSizeScale(float scale) {
+        float s = scale <= 0.01f ? 1.0f : Math.min(2.5f, Math.max(0.5f, scale));
+        if (Math.abs(s - sizeScale) < 0.0001f) {
+            return this;
+        }
+        return copy(nickname, level, hp, exp, uuid, moveIds, movePp, nature, gender, form, ability, s, status, heldItem, ivs, evs);
+    }
+
     public MonForm form() {
         return form;
+    }
+
+    /** True when this mon uses the shiny form (FormId {@code shiny} / DataKeys.Shiny). */
+    public boolean isShiny() {
+        return form == MonForm.SHINY || form.isShiny();
+    }
+
+    public OwnedMon withForm(MonForm newForm) {
+        MonForm f = newForm == null ? MonForm.NORMAL : newForm;
+        if (f == form) {
+            return this;
+        }
+        OwnedMon next = copy(nickname, level, hp, exp, uuid, moveIds, movePp, nature, gender, f, ability, sizeScale, status, heldItem, ivs, evs);
+        int newMax = next.maxHp();
+        int newHp = Math.min(newMax, Math.max(isFainted() ? 0 : 1, (int) Math.round(newMax * hpRatio())));
+        return next.withHp(newHp);
+    }
+
+    /** Force shiny form (or clear back to normal if {@code shiny} is false and currently shiny). */
+    public OwnedMon withShiny(boolean shiny) {
+        if (shiny) {
+            return form == MonForm.SHINY ? this : withForm(MonForm.SHINY);
+        }
+        return form == MonForm.SHINY ? withForm(MonForm.NORMAL) : this;
     }
 
     public Ability ability() {
@@ -779,26 +969,51 @@ public final class OwnedMon {
     }
 
     public OwnedMon withMoves(List<MonMove> moves) {
-        List<String> ids = moves.stream().map(MonMove::id).limit(MAX_MOVES).toList();
+        List<String> ids = moves.stream()
+                .map(m -> com.cobblemon.mod.battle.ShowdownMoveDex.canonicalize(m.id()))
+                .limit(MAX_MOVES)
+                .toList();
         return copy(nickname, level, hp, exp, uuid, ids, null, nature, gender, form, ability, sizeScale, status, heldItem);
     }
 
-    public OwnedMon learnMove(MonMove move) {
-        if (move == null || knowsMove(move)) {
+    /** Replace moveset by official move ids (e.g. starter balanced kit). */
+    public OwnedMon withMoveIds(List<String> ids) {
+        if (ids == null || ids.isEmpty()) {
             return this;
         }
+        List<String> next = ids.stream()
+                .filter(s -> s != null && !s.isBlank())
+                .map(s -> com.cobblemon.mod.battle.ShowdownMoveDex.canonicalize(s))
+                .distinct()
+                .limit(MAX_MOVES)
+                .toList();
+        if (next.isEmpty()) {
+            return this;
+        }
+        return copy(nickname, level, hp, exp, uuid, next, null, nature, gender, form, ability, sizeScale, status, heldItem);
+    }
+
+    public OwnedMon learnMove(MonMove move) {
+        if (move == null) {
+            return this;
+        }
+        String id = com.cobblemon.mod.battle.ShowdownMoveDex.canonicalize(move.id());
+        if (knowsMoveId(id) || knowsMove(move)) {
+            return this;
+        }
+        com.cobblemon.mod.battle.BattleMove bm = com.cobblemon.mod.battle.BattleMove.resolve(id);
         List<String> next = new ArrayList<>(moveIds);
         List<Integer> ppNext = new ArrayList<>(movePp);
         if (next.size() < MAX_MOVES) {
-            next.add(move.id());
-            ppNext.add(move.defaultMaxPp());
+            next.add(id);
+            ppNext.add(bm.getMaxPp());
         } else {
             next.remove(0);
             if (!ppNext.isEmpty()) {
                 ppNext.remove(0);
             }
-            next.add(move.id());
-            ppNext.add(move.defaultMaxPp());
+            next.add(id);
+            ppNext.add(bm.getMaxPp());
         }
         return copy(nickname, level, hp, exp, uuid, next, ppNext, nature, gender, form, ability, sizeScale, status, heldItem);
     }
@@ -866,6 +1081,42 @@ public final class OwnedMon {
                 .orElseGet(() -> OptionalEvo.none(this));
     }
 
+    /**
+     * Trade evolution via Link Cable (or completed player trade).
+     * Gen1 enum TRADE chains + datapack {@code trade} variant via item map.
+     */
+    public OptionalEvo tryTradeEvolve() {
+        // Gen1 TRADE branches (Kadabra, Machoke, Graveler, Haunter, …)
+        for (EvoBranch b : species.evolutions()) {
+            if (b.method() == EvolutionMethod.TRADE && !DisabledSpecies.isDisabled(b.into().id())) {
+                return OptionalEvo.of(evolveTo(b.into()), b.into());
+            }
+        }
+        // Datapack: treat as item_interact with link_cable if registered
+        var itemPath = tryItemEvolve("link_cable");
+        if (itemPath.evolved()) {
+            return itemPath;
+        }
+        // Hardcoded modern trade lines (common Cobblemon targets)
+        String into = switch (speciesId().toLowerCase(java.util.Locale.ROOT)) {
+            case "kadabra" -> "alakazam";
+            case "machoke" -> "machamp";
+            case "graveler" -> "golem";
+            case "haunter" -> "gengar";
+            case "boldore" -> "gigalith";
+            case "gurdurr" -> "conkeldurr";
+            case "phantump" -> "trevenant";
+            case "pumpkaboo" -> "gourgeist";
+            case "shelmet" -> "accelgor";
+            case "karrablast" -> "escavalier";
+            default -> null;
+        };
+        if (into != null && !DisabledSpecies.isDisabled(into)) {
+            return OptionalEvo.of(evolveToId(into), SpeciesHandle.of(into).asEnumOrFallback());
+        }
+        return OptionalEvo.none(this);
+    }
+
     /** Stone / item evolution using datapack {@code item_interact} chains. */
     public OptionalEvo tryItemEvolve(String stoneItemId) {
         return ItemEvolutionLookup.evolveWith(speciesId(), stoneItemId)
@@ -908,6 +1159,7 @@ public final class OwnedMon {
 
             OptionalEvo evo = cur.tryLevelEvolve();
             if (evo.evolved()) {
+                // N3: soft badge gate applied by caller when player known; here always apply
                 cur = evo.mon();
                 evolved = true;
             }
@@ -919,8 +1171,14 @@ public final class OwnedMon {
     }
 
     public Component statusLine() {
+        Component line = Component.empty()
+                .append(displayName());
+        if (isShiny()) {
+            line = Component.empty().append(line)
+                    .append(Component.literal(" ★").withStyle(net.minecraft.ChatFormatting.YELLOW));
+        }
         return Component.empty()
-                .append(displayName())
+                .append(line)
                 .append(Component.literal(" " + gender.symbol()).withStyle(net.minecraft.ChatFormatting.AQUA))
                 .append(" ")
                 .append(Component.literal("Lv." + level).withStyle(net.minecraft.ChatFormatting.GOLD))
@@ -958,7 +1216,7 @@ public final class OwnedMon {
     ) {
         return new OwnedMon(
                 speciesId(), species, nickname, level, hp, exp, uuid, moveIds, movePp,
-                nature, gender, form, ability, sizeScale, status, heldItem, ivs, evs
+                nature, gender, form, ability, sizeScale, status, heldItem, ivs, evs, this.mark
         );
     }
 

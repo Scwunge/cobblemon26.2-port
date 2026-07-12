@@ -55,6 +55,7 @@ public class PcBlock extends HorizontalDirectionalBlock {
 
     @Override
     public BlockState getStateForPlacement(BlockPlaceContext context) {
+        // FACING = direction the front/screen points. Opposite of look dir = faces the player.
         return this.defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
     }
 

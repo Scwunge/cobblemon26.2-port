@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/evolution/syrupy_apple"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/evolution/syrupy_apple","layer0":"cobblemon:item/evolution/syrupy_apple"}}

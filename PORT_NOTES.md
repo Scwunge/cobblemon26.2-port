@@ -34,5 +34,5 @@ The 1.21.1 bytecode will not run. This project:
 2. ~~Deeper battle~~ — **partial:** accuracy, dual-type, crits, status, STAB, held items, battle GUI chrome (Fight/Catch/Run).
 3. PC wallpapers, pasture AI, fossil machine NBT from datapacks.
 4. ~~Structure worldgen gate~~ — **documented** in `StructureBootstrap` (still deferred; do not enable unbound tags).
-5. Kotlin multi-loader reintegration with official sources.
+5. Kotlin multi-loader reintegration with official sources — **started:** see `KOTLIN.md` (mixed Java/Kotlin toolchain + util ports from porter).
 6. Full Showdown/move DB parity and 1025 unique entity models without enum fallback.

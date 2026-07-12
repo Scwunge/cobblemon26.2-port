@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/advancements/cobblemon_logo_green"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/advancements/cobblemon_logo_green","layer0":"cobblemon:item/advancements/cobblemon_logo_green"}}

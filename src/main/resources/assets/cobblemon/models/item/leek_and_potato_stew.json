@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/food/leek_and_potato_stew"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/food/leek_and_potato_stew","layer0":"cobblemon:item/food/leek_and_potato_stew"}}

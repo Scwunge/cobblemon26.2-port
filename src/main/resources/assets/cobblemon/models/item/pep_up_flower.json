@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/pep_up_flower"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/pep_up_flower","layer0":"cobblemon:item/pep_up_flower"}}

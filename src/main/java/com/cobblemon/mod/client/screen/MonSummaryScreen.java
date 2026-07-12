@@ -123,6 +123,11 @@ public class MonSummaryScreen extends Screen {
         text.accept(tx, baseY + 30,
                 Component.literal("Lv." + mon.level() + "  " + mon.gender().symbol())
                         .withStyle(ChatFormatting.GRAY));
+        if (mon.hasMark()) {
+            text.accept(tx, baseY + 40,
+                    Component.literal("★ " + com.cobblemon.mod.species.MarkAward.displayName(mon.mark()))
+                            .withStyle(ChatFormatting.LIGHT_PURPLE));
+        }
         UiTextures.typeIconSmall(graphics, type, tx, baseY + 42, 14);
         mon.secondaryType().ifPresent(t -> UiTextures.typeIconSmall(graphics, t, tx + 16, baseY + 42, 14));
 

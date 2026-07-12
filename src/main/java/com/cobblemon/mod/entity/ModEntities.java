@@ -31,5 +31,13 @@ public final class ModEntities {
             builder -> builder.sized(0.35f, 0.35f).clientTrackingRange(64).updateInterval(1)
     );
 
+    /** Trainer NPC scaffold — right-click starts wild-style battle with lead mon. */
+    public static final Supplier<EntityType<TrainerNpcEntity>> TRAINER_NPC = ENTITY_TYPES.registerEntityType(
+            "trainer_npc",
+            TrainerNpcEntity::new,
+            MobCategory.MISC,
+            builder -> builder.sized(0.6f, 1.8f).eyeHeight(1.62f).clientTrackingRange(10)
+    );
+
     private ModEntities() {}
 }

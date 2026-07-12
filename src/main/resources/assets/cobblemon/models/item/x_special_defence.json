@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/battle_items/x_sp_def"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/battle_items/x_sp_def","layer0":"cobblemon:item/battle_items/x_sp_def"}}

@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/medicine/burn_heal"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/medicine/burn_heal","layer0":"cobblemon:item/medicine/burn_heal"}}

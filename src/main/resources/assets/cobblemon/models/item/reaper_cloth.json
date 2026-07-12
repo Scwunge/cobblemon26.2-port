@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/evolution/reaper_cloth"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/evolution/reaper_cloth","layer0":"cobblemon:item/evolution/reaper_cloth"}}

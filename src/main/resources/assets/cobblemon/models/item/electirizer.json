@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/evolution/electirizer"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/evolution/electirizer","layer0":"cobblemon:item/evolution/electirizer"}}

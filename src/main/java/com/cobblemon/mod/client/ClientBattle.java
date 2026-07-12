@@ -6,6 +6,10 @@ import net.minecraft.client.Minecraft;
 
 /**
  * Client-side battle state mirror.
+ * <p>
+ * While open, {@link BattleCamera} takes over the view (third-person framing of
+ * both in-world mons) and {@link com.cobblemon.mod.client.screen.BattleScreen}
+ * draws a transparent overlay on top.
  */
 public final class ClientBattle {
     private static BattleUpdatePayload state;
@@ -18,6 +22,7 @@ public final class ClientBattle {
         Minecraft mc = Minecraft.getInstance();
         if (payload.ended()) {
             open = false;
+            BattleMusic.stop();
             if (mc.gui.screen() instanceof BattleScreen) {
                 mc.gui.setScreen(null);
             }
@@ -40,5 +45,6 @@ public final class ClientBattle {
     public static void clear() {
         state = null;
         open = false;
+        BattleMusic.stop();
     }
 }

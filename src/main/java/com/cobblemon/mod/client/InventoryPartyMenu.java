@@ -150,13 +150,6 @@ public final class InventoryPartyMenu {
             return true;
         }
 
-        // Left-click PC button on inventory panel
-        if (button == 0 && PartyHudRenderer.hitTestPcButton(mx, my)) {
-            close();
-            mc.gui.setScreen(new com.cobblemon.mod.client.screen.PcScreen());
-            return true;
-        }
-
         // Right-click a filled party slot to open menu
         if (button == 1) {
             int slot = PartyHudRenderer.hitTestInventorySlot(screen, mx, my);

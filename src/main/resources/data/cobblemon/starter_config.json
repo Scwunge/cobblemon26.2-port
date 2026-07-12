@@ -1,0 +1,16 @@
+{
+  "allowStarterOnJoin": true,
+  "promptStarterOnceOnly": true,
+  "categories": [
+    { "id": "kanto", "displayName": "Kanto", "species": ["bulbasaur", "charmander", "squirtle"] },
+    { "id": "johto", "displayName": "Johto", "species": ["chikorita", "cyndaquil", "totodile"] },
+    { "id": "hoenn", "displayName": "Hoenn", "species": ["treecko", "torchic", "mudkip"] },
+    { "id": "sinnoh", "displayName": "Sinnoh", "species": ["turtwig", "chimchar", "piplup"] },
+    { "id": "unova", "displayName": "Unova", "species": ["snivy", "tepig", "oshawott"] },
+    { "id": "kalos", "displayName": "Kalos", "species": ["chespin", "fennekin", "froakie"] },
+    { "id": "alola", "displayName": "Alola", "species": ["rowlet", "litten", "popplio"] },
+    { "id": "galar", "displayName": "Galar", "species": ["grookey", "scorbunny", "sobble"] },
+    { "id": "hisui", "displayName": "Hisui", "species": ["rowlet", "cyndaquil", "oshawott"] },
+    { "id": "paldea", "displayName": "Paldea", "species": ["sprigatito", "fuecoco", "quaxly"] }
+  ]
+}

@@ -1,1 +1,1 @@
-{"model":{"type":"minecraft:model","model":"cobblemon:item/ancient_gigaton_ball"}}
+{"model":{"type":"minecraft:select","property":"minecraft:display_context","cases":[{"when":["gui","fixed"],"model":{"type":"minecraft:model","model":"cobblemon:item/ancient_gigaton_ball"}}],"fallback":{"type":"minecraft:model","model":"cobblemon:item/ancient_gigaton_ball_model"}}}

@@ -26,6 +26,7 @@ public final class ContentKind {
         HELD,
         BAIT,
         VITAMIN,
+        POKEDEX,
         GENERIC
     }
 
@@ -53,9 +54,35 @@ public final class ContentKind {
         GENERIC
     }
 
+    /**
+     * Item IDs that exist only as 3D / animation model files (not real items).
+     * Official Cobblemon keeps 7 Pokédex colours; {@code *_model*} variants are poses.
+     */
+    public static boolean isModelOnlyItem(String id) {
+        if (id == null) return false;
+        String s = id.toLowerCase(Locale.ROOT);
+        // ball 3D mesh ids, pokedex open/flat/scanning meshes, generic *_model*
+        if (s.contains("_model")) return true;
+        if (s.startsWith("pokedex_") && (s.contains("_flat") || s.contains("_off")
+                || s.contains("scanning") || s.endsWith("_open"))) {
+            return true;
+        }
+        return false;
+    }
+
+    /** Real giveable Pokédex items: pokedex_red … pokedex_yellow (7 colours). */
+    public static boolean isPokedexItem(String id) {
+        if (id == null) return false;
+        String s = id.toLowerCase(Locale.ROOT);
+        if (isModelOnlyItem(s)) return false;
+        return s.equals("pokedex") || s.matches("pokedex_(red|blue|green|yellow|pink|black|white)");
+    }
+
     public static ItemRole itemRole(String id) {
         if (id == null) return ItemRole.GENERIC;
         String s = id.toLowerCase(Locale.ROOT);
+        if (isModelOnlyItem(s)) return ItemRole.GENERIC;
+        if (isPokedexItem(s)) return ItemRole.POKEDEX;
         if (s.endsWith("_ball") && !s.contains("model") && !s.equals("iron_ball") && !s.equals("light_ball") && !s.equals("smoke_ball")) {
             return ItemRole.BALL;
         }

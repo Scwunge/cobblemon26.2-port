@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/medicine/hyper_potion"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/medicine/hyper_potion","layer0":"cobblemon:item/medicine/hyper_potion"}}

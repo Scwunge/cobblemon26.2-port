@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/feathers/clever_feather"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/feathers/clever_feather","layer0":"cobblemon:item/feathers/clever_feather"}}

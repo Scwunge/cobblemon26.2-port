@@ -1,8 +1,8 @@
 {
   "variants": {
-    "facing=north": { "model": "cobblemon:block/pc", "y": 180 },
-    "facing=south": { "model": "cobblemon:block/pc" },
-    "facing=west": { "model": "cobblemon:block/pc", "y": 90 },
-    "facing=east": { "model": "cobblemon:block/pc", "y": 270 }
+    "facing=north": { "model": "cobblemon:block/pc" },
+    "facing=south": { "model": "cobblemon:block/pc", "y": 180 },
+    "facing=west": { "model": "cobblemon:block/pc", "y": 270 },
+    "facing=east": { "model": "cobblemon:block/pc", "y": 90 }
   }
 }

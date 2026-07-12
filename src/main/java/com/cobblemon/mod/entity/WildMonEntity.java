@@ -64,6 +64,9 @@ public class WildMonEntity extends PathfinderMob {
             SynchedEntityData.defineId(WildMonEntity.class, EntityDataSerializers.STRING);
     private static final EntityDataAccessor<Float> DATA_SIZE =
             SynchedEntityData.defineId(WildMonEntity.class, EntityDataSerializers.FLOAT);
+    /** True only while the rider has taken off (Space) — not auto-on when mounting. */
+    private static final EntityDataAccessor<Boolean> DATA_RIDING_FLIGHT =
+            SynchedEntityData.defineId(WildMonEntity.class, EntityDataSerializers.BOOLEAN);
 
     private boolean configured;
     private @Nullable UUID companionOwner;
@@ -192,6 +195,19 @@ public class WildMonEntity extends PathfinderMob {
         builder.define(DATA_FORM, MonForm.NORMAL.id());
         builder.define(DATA_GENDER, MonGender.GENDERLESS.id());
         builder.define(DATA_SIZE, 1.0f);
+        builder.define(DATA_RIDING_FLIGHT, false);
+    }
+
+    /** Player has taken off on an air-capable mount (Space). Ground-walk until then. */
+    public boolean isRidingFlight() {
+        return this.entityData.get(DATA_RIDING_FLIGHT);
+    }
+
+    public void setRidingFlight(boolean flying) {
+        this.entityData.set(DATA_RIDING_FLIGHT, flying);
+        if (!flying) {
+            this.setNoGravity(false);
+        }
     }
 
     public MonSpecies getSpecies() {
@@ -331,26 +347,78 @@ public class WildMonEntity extends PathfinderMob {
         return null;
     }
 
+    /**
+     * Seat the rider on top of the mon (not inside the body/hitbox).
+     * Official-style: Y scales with entity height so Charizard seats above the shoulders.
+     */
+    @Override
+    protected net.minecraft.world.phys.Vec3 getPassengerAttachmentPoint(
+            Entity passenger, EntityDimensions dimensions, float partialTick
+    ) {
+        return com.cobblemon.mod.ride.RideController.passengerSeatOffset(this);
+    }
+
     @Override
     protected void tickRidden(Player player, net.minecraft.world.phys.Vec3 travelVector) {
-        this.setRot(player.getYRot(), player.getXRot() * 0.5f);
+        // Takeoff / land: player controls flight — do NOT auto-fly on mount
+        com.cobblemon.mod.ride.RideController.updateFlightState(this, player);
+
+        boolean inFlight = isRidingFlight();
+        boolean waterBoat = com.cobblemon.mod.ride.RideController.canSwimMount(this) && this.isInWater();
+        // Water mounts stay upright like boats (no look-pitch tilt)
+        float pitchScale = inFlight ? 0.9f : 0.15f;
+        this.setRot(player.getYRot(), player.getXRot() * pitchScale);
         this.yRotO = this.yBodyRot = this.yHeadRot = this.getYRot();
         super.tickRidden(player, travelVector);
+        if (inFlight) {
+            this.fallDistance = 0.0f;
+            player.fallDistance = 0.0f;
+            this.setNoGravity(true);
+        } else if (waterBoat) {
+            // Don't force gravity here — travelAsBoat sets noGravity while Shift-diving
+            this.fallDistance = 0.0f;
+            player.fallDistance = 0.0f;
+        } else {
+            this.setNoGravity(false);
+        }
     }
 
     @Override
     protected net.minecraft.world.phys.Vec3 getRiddenInput(Player player, net.minecraft.world.phys.Vec3 travelVector) {
-        float f = player.xxa * 0.5f;
-        float f1 = player.zza;
-        if (f1 <= 0.0f) {
-            f1 *= 0.25f;
-        }
-        return new net.minecraft.world.phys.Vec3(f, 0.0, f1);
+        return com.cobblemon.mod.ride.RideController.riddenInput(this, player, player.xxa, player.zza);
     }
 
     @Override
     protected float getRiddenSpeed(Player player) {
-        return (float) this.getAttributeValue(Attributes.MOVEMENT_SPEED) * 0.9f;
+        float base = (float) this.getAttributeValue(Attributes.MOVEMENT_SPEED) * 0.95f;
+        return base * com.cobblemon.mod.ride.RideController.riddenSpeedMult(this);
+    }
+
+    @Override
+    public void travel(net.minecraft.world.phys.Vec3 travelVector) {
+        if (this.isVehicle() && this.getControllingPassenger() instanceof Player player) {
+            // Only use fly physics after takeoff (Space) — walk on ground first
+            if (isRidingFlight() && com.cobblemon.mod.ride.RideController.canFly(this)) {
+                com.cobblemon.mod.ride.RideController.travelFlying(this, player, travelVector);
+                return;
+            }
+            // Water types: boat on surface; Shift dive works while in water or just under
+            if (com.cobblemon.mod.ride.RideController.canSwimMount(this)
+                    && (this.isInWater() || this.isUnderWater() || this.isInWaterOrRain())) {
+                com.cobblemon.mod.ride.RideController.travelAsBoat(this, player, travelVector);
+                return;
+            }
+        }
+        super.travel(travelVector);
+    }
+
+    @Override
+    protected void removePassenger(Entity passenger) {
+        super.removePassenger(passenger);
+        setRidingFlight(false);
+        if (this.isCompanion()) {
+            com.cobblemon.mod.ride.RideController.onDismount(this);
+        }
     }
 
     public void applyIdentity(OwnedMon mon) {
@@ -406,13 +474,25 @@ public class WildMonEntity extends PathfinderMob {
     }
 
     public OwnedMon toOwnedMon() {
-        if (identity != null && identity.speciesId().equals(getSpeciesId())) {
-            return identity.withHp((int) getHealth()).withLevel(getMonLevel());
+        if (identity != null && identity.speciesId().equalsIgnoreCase(getSpeciesId())) {
+            // Preserve rolled identity (incl. shiny form) — only sync live HP/level
+            OwnedMon mon = identity.withHp((int) getHealth()).withLevel(getMonLevel());
+            if (mon.form() != getForm()) {
+                mon = mon.withForm(getForm());
+            }
+            return mon;
         }
-        // createWild preserves full-dex speciesId (never Gen1 type stand-in)
-        OwnedMon mon = OwnedMon.createWild(getSpeciesId(), getMonLevel(), this.getRandom());
-        return mon.withHp((int) getHealth())
-                .withLevel(getMonLevel());
+        // Reconstruct from synched entity data so shiny/form survive chunk reload without Identity NBT
+        OwnedMon mon = OwnedMon.createWild(getSpeciesId(), getMonLevel(), this.getRandom())
+                .withForm(getForm())
+                .withGender(getGender())
+                .withSizeScale(getSizeScale());
+        return mon.withHp((int) getHealth()).withLevel(getMonLevel());
+    }
+
+    /** Current party-style identity if present (may be null after load until rebuilt). */
+    public @Nullable OwnedMon getIdentity() {
+        return identity;
     }
 
     @Override
@@ -465,6 +545,19 @@ public class WildMonEntity extends PathfinderMob {
     }
 
     @Override
+    public void tick() {
+        super.tick();
+        // Pokédex: mark species as seen when a player is nearby (throttled)
+        if (!this.level().isClientSide() && !isCompanion() && this.tickCount % 40 == 0) {
+            for (Player p : this.level().players()) {
+                if (p instanceof ServerPlayer sp && p.distanceToSqr(this) < 24 * 24) {
+                    com.cobblemon.mod.party.PartyHelper.markSeen(sp, getSpeciesId());
+                }
+            }
+        }
+    }
+
+    @Override
     protected InteractionResult mobInteract(Player player, InteractionHand hand) {
         if (this.level().isClientSide()) {
             return InteractionResult.SUCCESS;
@@ -473,6 +566,8 @@ public class WildMonEntity extends PathfinderMob {
             return InteractionResult.PASS;
         }
         if (player instanceof ServerPlayer serverPlayer) {
+            // Register in Pokédex when the player inspects / engages
+            com.cobblemon.mod.party.PartyHelper.markSeen(serverPlayer, getSpeciesId());
             if (!BattleManager.inEngageRange(serverPlayer, this)) {
                 return InteractionResult.PASS;
             }
@@ -498,6 +593,20 @@ public class WildMonEntity extends PathfinderMob {
             this.companionOwner = uuid;
             this.entityData.set(DATA_COMPANION, true);
         });
+        // Full identity (IVs, shiny form, moves…) — preferred for catch preservation
+        input.read("Identity", net.minecraft.nbt.CompoundTag.CODEC).ifPresent(ct ->
+                OwnedMon.CODEC.parse(net.minecraft.nbt.NbtOps.INSTANCE, ct).result().ifPresent(mon -> {
+                    this.identity = mon;
+                    // Keep synched form/gender aligned with identity (shiny tint)
+                    this.entityData.set(DATA_FORM, mon.form().id());
+                    this.entityData.set(DATA_GENDER, mon.gender().id());
+                    this.entityData.set(DATA_SIZE, mon.sizeScale());
+                    if (mon.speciesId() != null && !mon.speciesId().isBlank()) {
+                        this.entityData.set(DATA_SPECIES, mon.speciesId());
+                    }
+                    this.entityData.set(DATA_LEVEL, mon.level());
+                })
+        );
         this.configured = true;
         refreshStats();
     }
@@ -514,5 +623,11 @@ public class WildMonEntity extends PathfinderMob {
         if (this.companionOwner != null) {
             output.store("Owner", net.minecraft.core.UUIDUtil.CODEC, this.companionOwner);
         }
+        OwnedMon id = this.identity != null ? this.identity : toOwnedMon();
+        OwnedMon.CODEC.encodeStart(net.minecraft.nbt.NbtOps.INSTANCE, id).result().ifPresent(tag -> {
+            if (tag instanceof net.minecraft.nbt.CompoundTag ct) {
+                output.store("Identity", net.minecraft.nbt.CompoundTag.CODEC, ct);
+            }
+        });
     }
 }

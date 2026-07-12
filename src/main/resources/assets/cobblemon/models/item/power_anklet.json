@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/held_items/power_anklet"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/held_items/power_anklet","layer0":"cobblemon:item/held_items/power_anklet"}}

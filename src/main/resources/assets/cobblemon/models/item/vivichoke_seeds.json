@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/vivichoke_seeds"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/vivichoke_seeds","layer0":"cobblemon:item/vivichoke_seeds"}}

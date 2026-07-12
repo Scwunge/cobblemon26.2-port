@@ -61,6 +61,17 @@ public final class ItemEvolutionLookup {
         put(map, "cosplay_pikachu", "thunder_stone", "raichu");
         put(map, "happiny", "oval_stone", "chansey");
         put(map, "munchlax", "sitrus_berry", "snorlax");
+        // Link Cable trade evolutions (official Cobblemon substitute for trading)
+        put(map, "kadabra", "link_cable", "alakazam");
+        put(map, "machoke", "link_cable", "machamp");
+        put(map, "graveler", "link_cable", "golem");
+        put(map, "haunter", "link_cable", "gengar");
+        put(map, "boldore", "link_cable", "gigalith");
+        put(map, "gurdurr", "link_cable", "conkeldurr");
+        put(map, "phantump", "link_cable", "trevenant");
+        put(map, "pumpkaboo", "link_cable", "gourgeist");
+        put(map, "shelmet", "link_cable", "accelgor");
+        put(map, "karrablast", "link_cable", "escavalier");
 
         // Scan species folder for item_interact evolutions
         try {

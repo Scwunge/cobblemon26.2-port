@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/medicine/revive"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/medicine/revive","layer0":"cobblemon:item/medicine/revive"}}

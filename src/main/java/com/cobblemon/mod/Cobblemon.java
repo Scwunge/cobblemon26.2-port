@@ -69,6 +69,7 @@ public class Cobblemon {
                     .displayItems((params, output) -> {
                         output.accept(ModItems.PARTY_BADGE.get());
                         output.accept(ModItems.WILD_MON_SPAWN_EGG.get());
+                        output.accept(ModItems.POKEMON_EGG.get());
                         for (var e : ContentItems.BY_ID.entrySet()) {
                             String id = e.getKey();
                             if (ContentBlocks.BY_ID.containsKey(id)) {
@@ -243,7 +244,9 @@ public class Cobblemon {
     }
 
     private static boolean isUtility(String id) {
-        return id.contains("rod") || id.contains("pokedex") || id.contains("link_cable")
+        return id.contains("rod")
+                || ContentKind.isPokedexItem(id)
+                || id.contains("link_cable")
                 || id.contains("ability_capsule") || id.contains("ability_patch") || id.contains("relic_coin")
                 || id.contains("scatter_bang") || id.contains("sticky_glob") || id.contains("npc_editor")
                 || id.contains("smithing_template");
@@ -290,6 +293,8 @@ public class Cobblemon {
 
         NeoForge.EVENT_BUS.register(this);
         NeoForge.EVENT_BUS.register(WildMonSpawner.class);
+        NeoForge.EVENT_BUS.register(com.cobblemon.mod.ride.RideEvents.class);
+        NeoForge.EVENT_BUS.addListener(Cobblemon::onServerStarting);
     }
 
     private void commonSetup(FMLCommonSetupEvent event) {
@@ -302,8 +307,24 @@ public class Cobblemon {
         com.cobblemon.mod.species.ItemEvolutionLookup.bootstrapClasspath();
         com.cobblemon.mod.species.FossilRecipes.bootstrapClasspath();
         com.cobblemon.mod.worldgen.StructureBootstrap.bootstrap();
+        com.cobblemon.mod.species.StarterCatalog.bootstrap();
+        com.cobblemon.mod.battle.ShowdownMoveDex.bootstrap();
+        // GraalVM JS spike (Java 25) — never throws; logs SUCCESS/FAILURE only.
+        com.cobblemon.mod.battle.graal.GraalSpike.tryBootstrap();
+        // Showdown runner v0 — optional JS context + move probe; never throws.
+        com.cobblemon.mod.battle.graal.ShowdownRunner.bootstrap();
+        // Showdown combat bridge v1 — JS damage formula + zip extract; native fallback.
+        com.cobblemon.mod.battle.graal.ShowdownCombatBridge.bootstrap();
+        // Full Showdown CommonJS sim (index.js) — best-effort; may fail without polyfills.
+        com.cobblemon.mod.battle.graal.ShowdownSim.bootstrap();
+        // MoLang scaffold — scan data/cobblemon/molang + tiny expression eval; never throws.
+        com.cobblemon.mod.molang.MoLangBootstrap.bootstrap();
+        // Ride settings JSON (data/cobblemon/ride_settings) — safe defaults if missing.
+        com.cobblemon.mod.ride.RideSettingsLoader.bootstrap();
+        LOGGER.info("{}", com.cobblemon.mod.battle.BattleEngine.describe());
+        com.cobblemon.mod.kotlin.CobblemonKotlin.bootstrap();
         LOGGER.info(
-                "Cobblemon 26.2 — runtime: {} · datapack: {} · assets: {} · playable spawns: {} · disabled (no model): {} · items: {} · blocks: {} · fossils: {}",
+                "Cobblemon 26.2 — runtime: {} · datapack: {} · assets: {} · playable spawns: {} · disabled (no model): {} · items: {} · blocks: {} · fossils: {} · showdown moves: {} · battle: {}",
                 MonSpecies.count(),
                 com.cobblemon.mod.species.SpeciesRegistry.size(),
                 com.cobblemon.mod.species.SpeciesAssets.size(),
@@ -311,17 +332,28 @@ public class Cobblemon {
                 com.cobblemon.mod.species.DisabledSpecies.size(),
                 ContentItems.BY_ID.size(),
                 ContentBlocks.BY_ID.size(),
-                com.cobblemon.mod.species.FossilRecipes.speciesForFossilItem("old_amber_fossil").isPresent() ? "loaded" : "fallback"
+                com.cobblemon.mod.species.FossilRecipes.speciesForFossilItem("old_amber_fossil").isPresent() ? "loaded" : "fallback",
+                com.cobblemon.mod.battle.ShowdownMoveDex.size(),
+                com.cobblemon.mod.battle.BattleEngine.preferredMode()
         );
         LOGGER.info("Cobblemon ready — M starter · P party · R send out · apricorn trees + berry patches in forests/plains/jungle");
     }
 
     private void registerAttributes(EntityAttributeCreationEvent event) {
         event.put(ModEntities.WILD_MON.get(), WildMonEntity.createAttributes().build());
+        event.put(ModEntities.TRAINER_NPC.get(), com.cobblemon.mod.entity.TrainerNpcEntity.createAttributes().build());
     }
 
     @SubscribeEvent
     public void onRegisterCommands(RegisterCommandsEvent event) {
         CobblemonCommands.register(event.getDispatcher());
+    }
+
+    private static void onServerStarting(net.neoforged.neoforge.event.server.ServerStartingEvent event) {
+        try {
+            com.cobblemon.mod.dialogue.DialogueManager.bootstrap(event.getServer().getResourceManager());
+        } catch (Throwable t) {
+            LOGGER.warn("Dialogue bootstrap failed: {}", t.toString());
+        }
     }
 }

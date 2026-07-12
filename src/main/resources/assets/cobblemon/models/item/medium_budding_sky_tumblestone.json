@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:block/tumblestone/medium_budding_sky_tumblestone"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:block/tumblestone/medium_budding_sky_tumblestone","layer0":"cobblemon:block/tumblestone/medium_budding_sky_tumblestone"}}

@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/ability_capsule"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/ability_capsule","layer0":"cobblemon:item/ability_capsule"}}

@@ -44,6 +44,29 @@ public final class PartyHelper {
         return true;
     }
 
+    /**
+     * Add to party if space, otherwise deposit into PC.
+     * @return true if stored in party or PC
+     */
+    public static boolean addMonOrPc(ServerPlayer player, OwnedMon mon) {
+        if (mon == null) {
+            return false;
+        }
+        if (addMon(player, mon)) {
+            return true;
+        }
+        PlayerPc pc = getPc(player).copy();
+        if (!pc.deposit(mon)) {
+            return false;
+        }
+        setPc(player, pc);
+        markCaught(player, mon.speciesId());
+        player.sendSystemMessage(Component.literal(
+                "Party full — " + mon.displayName().getString() + " was sent to the PC."
+        ));
+        return true;
+    }
+
     public static PlayerPokedex getDex(Player player) {
         return player.getData(ModAttachments.POKEDEX);
     }
@@ -186,6 +209,14 @@ public final class PartyHelper {
         }
         OwnedMon before = opt.get();
         OwnedMon.ExpResult result = before.addExp(amount);
+        OwnedMon after = result.mon();
+        // N3 deepen — reverse high-level evo if badge gate fails
+        if (result.evolved() && !BadgeGates.canLevelEvolve(player, after.level())) {
+            // Keep leveled mon without evo: re-apply exp without evo by setting level form of pre-evo
+            after = before.withLevel(after.level()).withExp(after.exp()).withHp(after.maxHp());
+            player.sendSystemMessage(BadgeGates.evoBlockedMessage(result.mon().level()));
+            result = new OwnedMon.ExpResult(after, result.leveled(), false, result.learnedMoves());
+        }
         party.set(partySlot, result.mon());
         set(player, party);
 

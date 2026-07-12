@@ -1,1 +1,1 @@
-{"parent":"cobblemon:item/ancient_poke_ball_model","textures":{"layer0":"cobblemon:item/poke_balls/models/ancient_jet_ball"}}
+{"parent":"cobblemon:item/ancient_poke_ball_model","textures":{"particle":"cobblemon:item/poke_balls/models/ancient_jet_ball","layer0":"cobblemon:item/poke_balls/models/ancient_jet_ball"}}

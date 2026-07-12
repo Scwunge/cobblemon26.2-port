@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/held_items/protective_pads"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/held_items/protective_pads","layer0":"cobblemon:item/held_items/protective_pads"}}

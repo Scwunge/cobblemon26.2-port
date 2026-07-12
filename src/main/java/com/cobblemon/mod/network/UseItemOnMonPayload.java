@@ -112,6 +112,18 @@ public record UseItemOnMonPayload(int hand, int partySlot) implements CustomPack
             var evo = mon.tryGemEvolve(method);
             return evo.evolved() ? evo.mon() : mon;
         }
+        // Link Cable — trade evolutions without a second player (official Cobblemon)
+        if (item instanceof com.cobblemon.mod.item.LinkCableItem
+                || "link_cable".equalsIgnoreCase(itemId)) {
+            var tradeEvo = mon.tryTradeEvolve();
+            if (tradeEvo.evolved()) {
+                player.sendSystemMessage(Component.literal(
+                        "§dThe Link Cable glowed! §f" + mon.displayName().getString()
+                                + " §devolved into §f" + tradeEvo.mon().displayName().getString() + "§d!"));
+                return tradeEvo.mon();
+            }
+            return mon;
+        }
         if (item instanceof VitaminItem || ContentKind.itemRole(itemId) == ContentKind.ItemRole.VITAMIN) {
             if (VitaminItem.isPpVitamin(itemId)) {
                 // PP Up / PP Max: restore and bump via full restore all PP as stand-in

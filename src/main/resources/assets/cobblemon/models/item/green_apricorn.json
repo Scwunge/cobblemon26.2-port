@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/green_apricorn"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/green_apricorn","layer0":"cobblemon:item/green_apricorn"}}

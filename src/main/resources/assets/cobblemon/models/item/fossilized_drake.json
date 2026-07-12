@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/fossils/fossilized_drake"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/fossils/fossilized_drake","layer0":"cobblemon:item/fossils/fossilized_drake"}}

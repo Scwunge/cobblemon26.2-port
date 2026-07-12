@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/held_items/damp_rock"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/held_items/damp_rock","layer0":"cobblemon:item/held_items/damp_rock"}}

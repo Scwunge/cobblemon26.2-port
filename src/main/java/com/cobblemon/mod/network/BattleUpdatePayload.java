@@ -28,7 +28,9 @@ public record BattleUpdatePayload(
         int wildMaxHp,
         List<String> moveIds,
         List<String> logLines,
-        boolean ended
+        boolean ended,
+        String lastPlayerMove,
+        String lastWildMove
 ) implements CustomPacketPayload {
     public static final CustomPacketPayload.Type<BattleUpdatePayload> TYPE =
             new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath(Cobblemon.MOD_ID, "battle_update"));
@@ -52,6 +54,8 @@ public record BattleUpdatePayload(
         writeStringList(buf, p.moveIds);
         writeStringList(buf, p.logLines);
         buf.writeBoolean(p.ended);
+        ByteBufCodecs.STRING_UTF8.encode(buf, p.lastPlayerMove == null ? "" : p.lastPlayerMove);
+        ByteBufCodecs.STRING_UTF8.encode(buf, p.lastWildMove == null ? "" : p.lastWildMove);
     }
 
     private static BattleUpdatePayload decode(ByteBuf buf) {
@@ -68,9 +72,12 @@ public record BattleUpdatePayload(
         List<String> moveIds = readStringList(buf);
         List<String> logLines = readStringList(buf);
         boolean ended = buf.readBoolean();
+        String lastPlayerMove = ByteBufCodecs.STRING_UTF8.decode(buf);
+        String lastWildMove = ByteBufCodecs.STRING_UTF8.decode(buf);
         return new BattleUpdatePayload(
                 phase, playerSpeciesId, playerLevel, playerHp, playerMaxHp, playerName,
-                wildSpeciesId, wildLevel, wildHp, wildMaxHp, moveIds, logLines, ended
+                wildSpeciesId, wildLevel, wildHp, wildMaxHp, moveIds, logLines, ended,
+                lastPlayerMove, lastWildMove
         );
     }
 

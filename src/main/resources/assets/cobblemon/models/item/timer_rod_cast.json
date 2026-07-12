@@ -1,1 +1,1 @@
-{"parent":"cobblemon:item/timer_rod","textures":{"layer0":"cobblemon:item/fishing/timer_rod_cast"}}
+{"parent":"cobblemon:item/timer_rod","textures":{"particle":"cobblemon:item/fishing/timer_rod_cast","layer0":"cobblemon:item/fishing/timer_rod_cast"}}

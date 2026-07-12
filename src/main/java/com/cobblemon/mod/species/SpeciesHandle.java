@@ -181,6 +181,9 @@ public final class SpeciesHandle {
      * Whether this species is large enough / configured to be rideable.
      * Mirrors official Cobblemon: only mons with riding seats (approx. height ≥ 1.0m
      * and weight ≥ 20kg). Small stage-1 mons like Charmander are not rideable.
+     * <p>
+     * Flying/Water types get a slightly softer size floor so mid-stage mounts
+     * (e.g. large birds, Lapras-scale water) qualify more reliably.
      */
     public boolean isRideable() {
         int heightDm;
@@ -194,8 +197,27 @@ public final class SpeciesHandle {
         } else {
             return false;
         }
-        // Charmander h=6 w=85 → false; Rhyhorn h=10 w=1150 → true; Charizard h=17 → true
+        boolean flyer = primaryType() == MonElement.FLYING
+                || secondaryType().orElse(null) == MonElement.FLYING
+                || primaryType() == MonElement.DRAGON;
+        boolean swimmer = primaryType() == MonElement.WATER
+                || secondaryType().orElse(null) == MonElement.WATER;
+        // Charmander h=6 → false; Charizard h=17 → true; Rhyhorn h=10 → true
+        if (flyer || swimmer) {
+            return heightDm >= 9 && weightHg >= 150;
+        }
         return heightDm >= 10 && weightHg >= 200;
+    }
+
+    /** Weight in hectograms (species JSON {@code weight}). */
+    public int weightHg() {
+        if (data != null) {
+            return data.weight();
+        }
+        if (enumSpecies != null) {
+            return Math.max(1, Math.round(enumSpecies.weightKg() * 10f));
+        }
+        return 100;
     }
 
     /** Height in decimetres (species JSON {@code height}). */

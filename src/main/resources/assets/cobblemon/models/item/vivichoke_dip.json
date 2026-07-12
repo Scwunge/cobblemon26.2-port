@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/food/vivichoke_dip"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/food/vivichoke_dip","layer0":"cobblemon:item/food/vivichoke_dip"}}

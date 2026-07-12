@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/fossils/sail_fossil"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/fossils/sail_fossil","layer0":"cobblemon:item/fossils/sail_fossil"}}

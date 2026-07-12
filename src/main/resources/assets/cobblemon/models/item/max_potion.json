@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/medicine/max_potion"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/medicine/max_potion","layer0":"cobblemon:item/medicine/max_potion"}}

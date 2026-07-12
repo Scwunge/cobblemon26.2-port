@@ -1,1 +1,1 @@
-{"parent":"cobblemon:item/aprijuice_yellow","textures":{"layer2":"cobblemon:item/aprijuice/aprijuice_yellow_overlay_umbrella"}}
+{"parent":"cobblemon:item/aprijuice_yellow","textures":{"particle":"cobblemon:item/aprijuice/aprijuice_yellow_overlay_umbrella","layer2":"cobblemon:item/aprijuice/aprijuice_yellow_overlay_umbrella"}}

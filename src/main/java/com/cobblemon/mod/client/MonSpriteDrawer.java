@@ -57,8 +57,7 @@ public final class MonSpriteDrawer {
         if (size < 8) {
             return;
         }
-        // soft plate behind sprite
-        g.fill(x, y, x + size, y + size, 0x22000000);
+        // No plate fill — starter / party chrome already provides the background
 
         String id = speciesId == null || speciesId.isBlank() ? "rattata" : speciesId.toLowerCase();
 

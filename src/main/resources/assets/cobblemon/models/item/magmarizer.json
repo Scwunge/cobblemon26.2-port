@@ -1,1 +1,1 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"cobblemon:item/evolution/magmarizer"}}
+{"parent":"minecraft:item/generated","textures":{"particle":"cobblemon:item/evolution/magmarizer","layer0":"cobblemon:item/evolution/magmarizer"}}

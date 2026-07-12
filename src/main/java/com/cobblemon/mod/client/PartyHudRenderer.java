@@ -24,26 +24,14 @@ public final class PartyHudRenderer {
     private static final int INV_ROW_H = 22;
     private static final int INV_ROW_GAP = 2;
     private static final int INV_ICON = 18;
-    private static final int INV_PC_H = 16;
-    private static final int INV_PC_GAP = 6;
-
-    /** Last drawn inventory PC button rect (for clicks). */
-    public static int lastPcButtonX;
-    public static int lastPcButtonY;
-    public static int lastPcButtonSize = 20;
 
     private PartyHudRenderer() {}
 
-    /** Height of the docked panel: title + 6 rows + PC chip. */
+    /** Height of the docked panel: title + 6 rows (PC is world-only via block / command). */
     private static int inventoryPanelH() {
         return INV_PAD + INV_TITLE_H
                 + PlayerParty.MAX_SIZE * (INV_ROW_H + INV_ROW_GAP)
-                + INV_PC_GAP + INV_PC_H + INV_PAD;
-    }
-
-    public static boolean hitTestPcButton(int mouseX, int mouseY) {
-        return mouseX >= lastPcButtonX && mouseX < lastPcButtonX + lastPcButtonSize
-                && mouseY >= lastPcButtonY && mouseY < lastPcButtonY + lastPcButtonSize;
+                + INV_PAD;
     }
 
     public static int hitTestInventorySlot(AbstractContainerScreen<?> screen, int mouseX, int mouseY) {
@@ -169,20 +157,6 @@ public final class PartyHudRenderer {
                     Component.literal("Lv." + mon.level()).withStyle(ChatFormatting.GRAY));
             UiTextures.hpBar(graphics, sx + rowW - 28, sy + INV_ROW_H - 6, 24, 3, mon.hp(), mon.maxHp());
         }
-
-        // PC button — official back-button chrome + label
-        int pcW = rowW;
-        int pcX = x + INV_PAD;
-        int pcY = slotStartY + PlayerParty.MAX_SIZE * (INV_ROW_H + INV_ROW_GAP) + INV_PC_GAP - INV_ROW_GAP;
-        boolean pcHover = mouseX >= pcX && mouseX < pcX + pcW && mouseY >= pcY && mouseY < pcY + INV_PC_H;
-        UiTextures.blitNative(graphics, UiTextures.BACK_BUTTON, pcX, pcY, INV_PC_H, INV_PC_H);
-        if (pcHover) {
-            graphics.fill(pcX, pcY, pcX + pcW, pcY + INV_PC_H, 0x33FFFFFF);
-        }
-        text.accept(pcX + INV_PC_H + 4, pcY + 4, Component.literal("PC").withStyle(ChatFormatting.AQUA));
-        lastPcButtonX = pcX;
-        lastPcButtonY = pcY;
-        lastPcButtonSize = pcW;
     }
 
     private static void renderThrowTip(GuiGraphicsExtractor graphics, int screenW) {

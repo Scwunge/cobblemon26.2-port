@@ -239,11 +239,24 @@ public class CubeBallEntity extends ThrowableItemProjectile {
         }
 
         if (pendingSuccess) {
+            // toOwnedMon preserves shiny form / identity from the wild entity
             OwnedMon caught = CatchCalc.applyCatchEffects(wild.toOwnedMon(), getTier());
+            // C2 — roll contextual mark on catch
+            String markId = com.cobblemon.mod.species.MarkAward.rollOnCatch(player, caught, player.getRandom());
+            if (markId != null && !markId.isBlank()) {
+                caught = caught.withMark(markId);
+            }
             if (PartyHelper.addMon(player, caught)) {
                 player.sendSystemMessage(
                         Component.translatable("message.cobblemon.caught", caught.displayName(), caught.level())
                 );
+                if (caught.hasMark()) {
+                    player.sendSystemMessage(Component.literal(
+                            "§d★ " + com.cobblemon.mod.species.MarkAward.displayName(caught.mark()) + "!"));
+                }
+                if (caught.isShiny()) {
+                    player.sendSystemMessage(Component.literal("§e★ Shiny!"));
+                }
                 PartyHelper.grantExp(player, 0, 10 + wild.getMonLevel() * 2);
                 level().playSound(null, wild.getX(), wild.getY(), wild.getZ(),
                         SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 1.0f, 1.2f);
