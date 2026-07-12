@@ -117,13 +117,6 @@ public final class ApricornTrees {
             leaf = leaf.setValue(LeavesBlock.DISTANCE, 1);
         }
 
-        BlockState fruitState = fruitBlock.defaultBlockState();
-        if (fruitBlock instanceof ApricornFruitBlock fruit) {
-            fruitState = fruit.ripe();
-        } else if (fruitState.hasProperty(ApricornFruitBlock.AGE)) {
-            fruitState = fruitState.setValue(ApricornFruitBlock.AGE, ApricornFruitBlock.MAX_AGE);
-        }
-
         // Trunk height 4–5
         int height = 4 + random.nextInt(2);
         for (int y = 0; y < height; y++) {
@@ -154,41 +147,67 @@ public final class ApricornTrees {
         // Cap leaf
         set(level, top.above(2), leaf);
 
-        // Hang 2–5 fruit under outer leaves
+        // Side-mount fruit on canopy (porter models: stem on facing side into leaf)
         int fruits = 2 + random.nextInt(4);
         int placed = 0;
         int attempts = 0;
-        while (placed < fruits && attempts++ < 24) {
+        Direction[] horiz = {Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST};
+        while (placed < fruits && attempts++ < 40) {
             int dx = random.nextInt(5) - 2;
             int dz = random.nextInt(5) - 2;
-            if (dx == 0 && dz == 0) {
+            int dy = random.nextInt(3); // 0–2 in canopy
+            if (dx == 0 && dz == 0 && dy < 2) {
                 continue;
             }
-            BlockPos leafPos = top.offset(dx, 1 + random.nextInt(2), dz);
-            BlockPos hang = leafPos.below();
-            if (level.getBlockState(leafPos).is(leafBlock)
-                    && (level.isEmptyBlock(hang) || level.getBlockState(hang).canBeReplaced())) {
-                set(level, hang, fruitState);
+            BlockPos leafPos = top.offset(dx, dy, dz);
+            if (!level.getBlockState(leafPos).is(leafBlock)) {
+                continue;
+            }
+            Direction out = horiz[random.nextInt(horiz.length)];
+            if (tryPlaceFruit(level, leafPos, out, fruitBlock)) {
                 placed++;
             }
         }
-        // Also attach fruit sideways on canopy edges
-        for (Direction d : new Direction[]{Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST}) {
-            if (random.nextFloat() < 0.55f) {
-                BlockPos side = top.relative(d, 2).above();
-                if (level.isEmptyBlock(side) || level.getBlockState(side).canBeReplaced()) {
-                    // prefer under a leaf
-                    BlockPos underLeaf = top.relative(d).above().below();
-                    if (level.isEmptyBlock(underLeaf) || level.getBlockState(underLeaf).canBeReplaced()) {
-                        if (level.getBlockState(underLeaf.above()).is(leafBlock)
-                                || level.getBlockState(underLeaf.relative(d.getOpposite())).is(leafBlock)) {
-                            set(level, underLeaf, fruitState);
-                        }
-                    }
+        // Guarantee a few on outer edges
+        for (Direction d : horiz) {
+            if (placed >= fruits + 2) {
+                break;
+            }
+            if (random.nextFloat() < 0.7f) {
+                BlockPos leafPos = top.relative(d).above(random.nextInt(2));
+                if (level.getBlockState(leafPos).is(leafBlock) && tryPlaceFruit(level, leafPos, d, fruitBlock)) {
+                    placed++;
                 }
             }
         }
 
+        return true;
+    }
+
+    /**
+     * Place ripe fruit on the {@code outward} side of a leaf block.
+     * Stem {@code facing} points back into the leaf (porter convention).
+     */
+    private static boolean tryPlaceFruit(WorldGenLevel level, BlockPos leafPos, Direction outward, Block fruitBlock) {
+        BlockPos fruitPos = leafPos.relative(outward);
+        if (!level.isEmptyBlock(fruitPos) && !level.getBlockState(fruitPos).canBeReplaced()) {
+            return false;
+        }
+        // facing = direction from fruit toward leaf = opposite of outward
+        Direction facing = outward.getOpposite();
+        BlockState fruitState;
+        if (fruitBlock instanceof ApricornFruitBlock fruit) {
+            fruitState = fruit.ripe(facing);
+        } else {
+            fruitState = fruitBlock.defaultBlockState();
+            if (fruitState.hasProperty(ApricornFruitBlock.AGE)) {
+                fruitState = fruitState.setValue(ApricornFruitBlock.AGE, ApricornFruitBlock.MAX_AGE);
+            }
+            if (fruitState.hasProperty(ApricornFruitBlock.FACING)) {
+                fruitState = fruitState.setValue(ApricornFruitBlock.FACING, facing);
+            }
+        }
+        set(level, fruitPos, fruitState);
         return true;
     }
 

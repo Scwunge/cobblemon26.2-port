@@ -9078,5 +9078,9 @@
   "message.cobblemon.recalled": "%s, come back!",
   "message.cobblemon.leveled_up": "%s grew to Lv.%s!",
   "message.cobblemon.learned_move": "%s learned %s!",
-  "message.cobblemon.evolved": "%s evolved into %s!"
+  "message.cobblemon.evolved": "%s evolved into %s!",
+  "hud.cobblemon.throw_title": "Throw out your Cobblemon",
+  "hud.cobblemon.throw_hint": "Press R to send out / recall",
+  "hud.cobblemon.choose_starter": "Press M to choose a starter",
+  "hud.cobblemon.throw": "Throw out your Cobblemon"
 }

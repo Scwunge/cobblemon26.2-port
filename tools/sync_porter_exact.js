@@ -211,6 +211,73 @@ function rmRecursiveIfExists(p) {
 }
 
 /**
+ * Official blockstates use age/half/mutation for crops & saccharine leaves, but this
+ * port often registers plain Block (no properties). Mismatched variants → purple/black.
+ * Flatten to a single model that matches registration.
+ */
+function restoreSafePlantBlockstates() {
+  console.log("[assets] restore safe plant blockstates (no age mismatch)");
+  const bsDir = path.join(ASSETS, "blockstates");
+  const flat = {
+    saccharine_leaves: "cobblemon:block/saccharine_leaves",
+    medicinal_leek: "cobblemon:block/medicinal_leek_stage_2",
+    hearty_grains: "cobblemon:block/hearty_grains_stage3",
+    revival_herb: "cobblemon:block/revival_herb_stage_3",
+  };
+  for (const [id, model] of Object.entries(flat)) {
+    writeJsonIfChanged(path.join(bsDir, id + ".json"), {
+      variants: { "": { model } },
+    });
+  }
+  // Apricorn fruit: age 0–3 + facing (porter y-rotations; stem on facing side)
+  const faceRot = { east: 270, north: 180, south: null, west: 90 };
+  for (const color of ["black", "blue", "green", "pink", "red", "white", "yellow"]) {
+    const variants = {};
+    for (let age = 0; age <= 3; age++) {
+      const model =
+        age === 3
+          ? "cobblemon:block/" + color + "_apricorn"
+          : "cobblemon:block/apricorn_stage_" + age;
+      for (const [face, y] of Object.entries(faceRot)) {
+        const key = "age=" + age + ",facing=" + face;
+        variants[key] = y == null ? { model } : { model, y };
+      }
+    }
+    writeJsonIfChanged(path.join(bsDir, color + "_apricorn.json"), { variants });
+  }
+  // Berry bushes: official multipart uses age 0–5 + rooted + mulch; BerryCropBlock only has age 0–3
+  if (fs.existsSync(bsDir)) {
+    for (const name of fs.readdirSync(bsDir)) {
+      if (!name.endsWith("_berry.json")) continue;
+      const base = name.replace(/_berry\.json$/i, "");
+      writeJsonIfChanged(path.join(bsDir, name), {
+        variants: {
+          "age=0": { model: "cobblemon:block/berries/planted" },
+          "age=1": { model: "cobblemon:block/berries/" + base + "_sprout" },
+          "age=2": { model: "cobblemon:block/berries/" + base + "_young" },
+          "age=3": { model: "cobblemon:block/berries/" + base + "_mature" },
+        },
+      });
+    }
+  }
+  // Fix mint parent model texture paths: cobblemon:blocks/ → cobblemon:block/
+  const modelsDir = path.join(ASSETS, "models", "block");
+  if (fs.existsSync(modelsDir)) {
+    for (const name of fs.readdirSync(modelsDir)) {
+      if (!/^mint_stage_\d+\.json$/i.test(name)) continue;
+      const p = path.join(modelsDir, name);
+      let text = fs.readFileSync(p, "utf8");
+      const next = text.replace(/cobblemon:blocks\//g, "cobblemon:block/");
+      if (next !== text) {
+        fs.writeFileSync(p, next, "utf8");
+        stats.updated++;
+        console.log("  fixed path in", name);
+      }
+    }
+  }
+}
+
+/**
  * After data sync: force the safe worldgen pack so a full sync cannot re-break worlds.
  * - Two configured + two placed features only (code-backed NoneFeatureConfiguration)
  * - Two NeoForge biome modifiers (exclude deep_dark)
@@ -425,7 +492,7 @@ function mergeEnUsExtras() {
   } catch (_) {
     return;
   }
-  // Keep our runtime-only keys if missing from porter
+  // Keep our runtime-only keys (porter overwrites lang; always re-apply port HUD strings)
   const extras = {
     "screen.cobblemon.party": "Party",
     "screen.cobblemon.pc": "PC",
@@ -447,12 +514,24 @@ function mergeEnUsExtras() {
     "message.cobblemon.learned_move": "%s learned %s!",
     "message.cobblemon.evolved": "%s evolved into %s!",
     "itemGroup.cobblemon.plants": "Cobblemon: Plants",
+    // Client HUD tips (not in official porter lang)
+    "hud.cobblemon.throw_title": "Throw out your Cobblemon",
+    "hud.cobblemon.throw_hint": "Press R to send out / recall",
+    "hud.cobblemon.choose_starter": "Press M to choose a starter",
+    "hud.cobblemon.throw": "Throw out your Cobblemon",
   };
+  // Always force port-only HUD keys; other extras only if missing
+  const forceKeys = new Set([
+    "hud.cobblemon.throw_title",
+    "hud.cobblemon.throw_hint",
+    "hud.cobblemon.choose_starter",
+    "hud.cobblemon.throw",
+  ]);
   let added = 0;
   for (const [k, v] of Object.entries(extras)) {
-    if (lang[k] == null) {
+    if (forceKeys.has(k) || lang[k] == null) {
+      if (lang[k] !== v) added++;
       lang[k] = v;
-      added++;
     }
   }
   if (added > 0) {
@@ -478,6 +557,8 @@ function main() {
 
   console.log("[assets] blockstates (exact multi-variant)");
   syncTree(path.join(PORTER, "04_blockstates"), path.join(ASSETS, "blockstates"));
+  // Port registers many plants as plain Blocks (no age/half) — flatten those blockstates
+  restoreSafePlantBlockstates();
 
   console.log("[assets] sounds");
   // Porter: 03_sounds/{sounds.json, pokemon/, move/, ...}

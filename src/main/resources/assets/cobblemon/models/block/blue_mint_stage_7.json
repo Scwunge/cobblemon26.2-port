@@ -1,1 +1,1 @@
-{"parent":"cobblemon:block/mint_stage_7","textures":{"0":"cobblemon:block/crops/blue_mint","particle":"cobblemon:block/crops/blue_mint"}}
+{ "render_type": "minecraft:cutout", "parent":"cobblemon:block/mint_stage_7","textures":{"0":"cobblemon:block/crops/blue_mint","particle":"cobblemon:block/crops/blue_mint"}}

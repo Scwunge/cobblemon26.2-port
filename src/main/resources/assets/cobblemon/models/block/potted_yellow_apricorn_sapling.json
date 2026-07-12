@@ -1,1 +1,1 @@
-{"parent":"minecraft:block/flower_pot_cross","textures":{"plant":"cobblemon:block/crops/yellow_apricorn_sapling"}}
+{ "render_type": "minecraft:cutout", "parent":"minecraft:block/flower_pot_cross","textures":{"plant":"cobblemon:block/crops/yellow_apricorn_sapling"}}

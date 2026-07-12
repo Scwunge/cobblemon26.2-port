@@ -10,32 +10,46 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.ScheduledTickAccess;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.HorizontalDirectionalBlock;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
- * Hanging apricorn fruit (age 0–3). Grows on random ticks when next to leaves/log;
- * harvest at age 3 drops the fruit item and resets to age 0 (or breaks).
+ * Hanging apricorn fruit (age 0–3 + horizontal facing).
+ * <p>
+ * Porter models attach the stem on the <strong>south</strong> face by default;
+ * {@code facing} rotates the model so the stem points into adjacent leaves
+ * (same as official Cobblemon blockstates).
  */
 public class ApricornFruitBlock extends Block {
     public static final MapCodec<ApricornFruitBlock> CODEC = simpleCodec(ApricornFruitBlock::new);
     public static final IntegerProperty AGE = IntegerProperty.create("age", 0, 3);
+    public static final EnumProperty<Direction> FACING = HorizontalDirectionalBlock.FACING;
     public static final int MAX_AGE = 3;
 
     private static final VoxelShape SHAPE = Block.box(4, 2, 4, 12, 14, 12);
 
     public ApricornFruitBlock(Properties properties) {
         super(properties);
-        this.registerDefaultState(this.stateDefinition.any().setValue(AGE, 0));
+        this.registerDefaultState(
+                this.stateDefinition.any()
+                        .setValue(AGE, 0)
+                        .setValue(FACING, Direction.SOUTH)
+        );
     }
 
     @Override
@@ -45,12 +59,37 @@ public class ApricornFruitBlock extends Block {
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(AGE);
+        builder.add(AGE, FACING);
     }
 
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
         return SHAPE;
+    }
+
+    @Override
+    public BlockState getStateForPlacement(BlockPlaceContext context) {
+        Direction prefer = context.getClickedFace();
+        if (!prefer.getAxis().isHorizontal()) {
+            prefer = context.getHorizontalDirection().getOpposite();
+        }
+        // Stem points toward the clicked block (attachment)
+        Direction facing = prefer.getOpposite();
+        if (!facing.getAxis().isHorizontal()) {
+            facing = Direction.SOUTH;
+        }
+        BlockState state = defaultBlockState().setValue(FACING, facing);
+        if (canSurvive(state, context.getLevel(), context.getClickedPos())) {
+            return state;
+        }
+        // Try each horizontal attachment
+        for (Direction d : Direction.Plane.HORIZONTAL) {
+            BlockState tryState = defaultBlockState().setValue(FACING, d);
+            if (canSurvive(tryState, context.getLevel(), context.getClickedPos())) {
+                return tryState;
+            }
+        }
+        return defaultBlockState();
     }
 
     @Override
@@ -73,18 +112,43 @@ public class ApricornFruitBlock extends Block {
 
     @Override
     protected boolean canSurvive(BlockState state, LevelReader level, BlockPos pos) {
-        // Hang under/beside leaves or log (Cobblemon-style canopy fruit)
+        // Prefer attachment in facing direction (stem into leaf/log)
+        Direction facing = state.getValue(FACING);
+        if (isSupport(level.getBlockState(pos.relative(facing)))) {
+            return true;
+        }
+        // Fallback: any adjacent canopy support
         for (Direction d : Direction.values()) {
-            BlockState n = level.getBlockState(pos.relative(d));
-            String path = BuiltInRegistries.BLOCK.getKey(n.getBlock()).getPath();
-            if (path.contains("apricorn_leaves") || path.contains("apricorn_log") || path.contains("leaves")) {
-                return true;
-            }
-            if (n.is(net.minecraft.tags.BlockTags.LEAVES) || n.is(net.minecraft.tags.BlockTags.LOGS)) {
+            if (isSupport(level.getBlockState(pos.relative(d)))) {
                 return true;
             }
         }
         return false;
+    }
+
+    private static boolean isSupport(BlockState n) {
+        String path = BuiltInRegistries.BLOCK.getKey(n.getBlock()).getPath();
+        if (path.contains("apricorn_leaves") || path.contains("apricorn_log") || path.contains("leaves")) {
+            return true;
+        }
+        return n.is(net.minecraft.tags.BlockTags.LEAVES) || n.is(net.minecraft.tags.BlockTags.LOGS);
+    }
+
+    @Override
+    protected BlockState updateShape(
+            BlockState state,
+            LevelReader level,
+            ScheduledTickAccess ticks,
+            BlockPos pos,
+            Direction directionToNeighbour,
+            BlockPos neighbourPos,
+            BlockState neighbourState,
+            RandomSource random
+    ) {
+        if (!canSurvive(state, level, pos)) {
+            return Blocks.AIR.defaultBlockState();
+        }
+        return state;
     }
 
     @Override
@@ -103,13 +167,23 @@ public class ApricornFruitBlock extends Block {
     }
 
     @Override
-    protected void spawnAfterBreak(BlockState state, ServerLevel level, BlockPos pos, ItemStack tool, boolean dropXp) {
-        // default loot handles item drops if tables exist
-        super.spawnAfterBreak(state, level, pos, tool, dropXp);
+    protected BlockState rotate(BlockState state, Rotation rotation) {
+        return state.setValue(FACING, rotation.rotate(state.getValue(FACING)));
     }
 
-    /** Force ripe fruit for worldgen trees. */
+    @Override
+    protected BlockState mirror(BlockState state, Mirror mirror) {
+        return state.rotate(mirror.getRotation(state.getValue(FACING)));
+    }
+
+    /** Ripe fruit, stem facing {@code attachment} (direction toward leaf). */
+    public BlockState ripe(Direction attachment) {
+        Direction facing = attachment.getAxis().isHorizontal() ? attachment : Direction.SOUTH;
+        return this.defaultBlockState().setValue(AGE, MAX_AGE).setValue(FACING, facing);
+    }
+
+    /** Force ripe fruit for worldgen trees (default south attachment). */
     public BlockState ripe() {
-        return this.defaultBlockState().setValue(AGE, MAX_AGE);
+        return ripe(Direction.SOUTH);
     }
 }

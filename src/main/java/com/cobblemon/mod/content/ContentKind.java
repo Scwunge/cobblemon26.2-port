@@ -115,6 +115,12 @@ public final class ContentKind {
         if (id == null) return BlockRole.GENERIC;
         String s = id.toLowerCase(Locale.ROOT);
         if (com.cobblemon.mod.block.MachineBlock.kindForId(s) != null) return BlockRole.MACHINE;
+        // Plantable crop blocks first — some share names with medicine items (e.g. revival_herb)
+        if (s.equals("revival_herb") || s.equals("medicinal_leek") || s.equals("hearty_grains")
+                || s.equals("big_root") || s.equals("pep_up_flower") || s.contains("vivichoke")
+                || s.contains("bugwort")) {
+            return BlockRole.CROP;
+        }
         if (isMedicine(s)) return BlockRole.MEDICINE_DISPLAY;
         if (s.endsWith("_berry")) return BlockRole.BERRY_CROP;
         if (s.contains("mulch")) return BlockRole.MULCH;
