@@ -38,17 +38,30 @@ Use this file to resume work later (with Grok or alone): what works, what is par
 
 ### Useful commands
 
-| Command | Purpose |
-|---------|---------|
-| `/cobblemon party` | List party |
-| `/cobblemon starter` | Hint for starter UI |
-| `/cobblemon give <species> [level]` | Give mon |
-| `/cobblemon spawn <species> [level]` | Spawn wild |
-| `/cobblemon heal` | Heal party |
-| `/cobblemon species [id]` | Species info / count |
-| `/cobblemon dex` | Seen/caught counts |
-| `/cobblemon tree [color]` | Plant apricorn tree |
-| `/cobblemon trainer [youngster\|gym\|ace\|bug] [level]` | Spawn trainer mon |
+There is **no** `/cobblemon ...` subcommand tree. Commands are **top-level** names matching official Cobblemon / porter aliases (see `CobblemonCommands.java`). Party slots are **1-based** (1 = lead). Most mutation commands require **permission level 2** (gamemaster); UI openers do not.
+
+| Command | Permission | Purpose |
+|---------|------------|---------|
+| `/levelup [slot]` · `/levelup <player> <slot>` | op | Level up one party mon |
+| `/healpokemon [player]` · `/pokeheal [player]` | op | Heal party |
+| `/givepokemon <species> [level]` · `/pokegive …` | op | Give mon to self (default Lv.5) |
+| `/givepokemonother <player> <species> [level]` · `/pokegiveother …` | op | Give mon to another player |
+| `/spawnpokemon <species> [level]` · `/pokespawn …` | op | Spawn wild mon near you (default Lv.10) |
+| `/takepokemon <slot>` · `/takepokemon <player> <slot>` | op | Remove mon from party slot |
+| `/clearparty [player]` | op | Clear party |
+| `/clearpc [player]` | op | Clear PC boxes |
+| `/openstarterscreen` | player | Open starter select UI |
+| `/pc` | player | Open PC UI |
+| `/pokedex` | player | Print seen/caught counts |
+| `/teach <slot> <move>` | op | Teach a move (e.g. `tackle`, `ember_snap`) |
+| `/pokemonedit <slot> level <n>` · `/pokeedit …` | op | Set level (or `nickname <name>`) |
+| `/pokemoneditother` · `/pokeeditother` | op | Same edits for another player |
+| `/helditem <slot> <item>` · `/helditem <slot> clear` | op | Set / clear held item |
+| `/stopbattle` | op | Force-end current battle |
+| `/pokemonrestart` · `/pokerestart` · `[…]other` | op | Clear party (+ PC unless `partyonly`) |
+| `/freezepokemon` | op | Stub (look-target debug; use `/stopbattle` for battles) |
+
+Keys **M / P / R / H / O / J / V** (table above) remain the primary non-command UX.
 
 ---
 

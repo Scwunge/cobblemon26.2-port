@@ -3,7 +3,9 @@
  *
  * - Copies every mappable asset/datapack file from porter
  * - Overwrites when bytes differ (exact Cobblemon content)
- * - Skips only known world-breakers (structure NBTs / structure tags)
+ * - Skips world-breakers (structures, processor lists, porter features/biome_modifiers)
+ * - Remaps minecraft:chain → minecraft:iron_chain on text (MC 26.2)
+ * - Restores the safe local worldgen pack after data sync
  * - Regenerates MC 26 items/*.json definitions + content id lists
  * - Does NOT simplify blockstates (keeps full age= / multipart variants)
  *
@@ -26,12 +28,19 @@ const RESERVED_IDS = new Set([
   "wild_mon_spawn_egg", "bind_orb",
 ]);
 
+/** Only these configured/placed feature ids are kept after sync. */
+const SAFE_FEATURE_IDS = ["cobblemon_ore", "overworld_decoration"];
+/** Only these biome_modifier files are kept after sync. */
+const SAFE_BIOME_MODIFIERS = ["01_ores.json", "02_vegetation.json"];
+
 const stats = {
   copied: 0,
   updated: 0,
   same: 0,
   skipped: 0,
   missingSrc: 0,
+  worldgenRestored: 0,
+  worldgenDeleted: 0,
 };
 
 function ensureDir(d) {
@@ -54,12 +63,23 @@ function md5(file) {
   return h.digest("hex");
 }
 
+/**
+ * MC 26.2: block/item `minecraft:chain` was renamed to `minecraft:iron_chain`.
+ * Only remap the exact resource id — do not touch chainmail / other chain* ids.
+ */
+function remapMc26Ids(str) {
+  // minecraft:chain not followed by more resource-id characters
+  return str.replace(/minecraft:chain(?![a-z0-9_])/g, "minecraft:iron_chain");
+}
+
 function rewriteNs(str) {
-  return str
-    .replace(/fakemon:/g, "cobblemon:")
-    .replace(/"fakemon"/g, '"cobblemon"')
-    .replace(/fakemon\//g, "cobblemon/")
-    .replace(/\.fakemon\./g, ".cobblemon.");
+  return remapMc26Ids(
+    str
+      .replace(/fakemon:/g, "cobblemon:")
+      .replace(/"fakemon"/g, '"cobblemon"')
+      .replace(/fakemon\//g, "cobblemon/")
+      .replace(/\.fakemon\./g, ".cobblemon.")
+  );
 }
 
 const TEXT_EXT = new Set([
@@ -113,6 +133,10 @@ function syncTree(srcRoot, destRoot, filterFn = null) {
   }
 }
 
+/**
+ * Paths that must never be synced from porter (registry freezes / feature-order crashes).
+ * Covers structures + unsafe worldgen + porter biome modifiers.
+ */
 function isUnsafeStructurePath(rel) {
   const r = rel.replace(/\\/g, "/").toLowerCase();
   // NBT structures + structure tags that freeze registries when unbound
@@ -123,7 +147,192 @@ function isUnsafeStructurePath(rel) {
   if (r.includes("worldgen/structure_set/")) return true;
   if (r.includes("worldgen/template_pool/")) return true;
   if (r.includes("has_structure")) return true;
+  if (isUnsafeWorldgenPath(r)) return true;
   return false;
+}
+
+/**
+ * Unsafe worldgen / biome_modifier paths (porter must not overwrite local safe pack).
+ * @param {string} r already lowercased, forward-slash normalized
+ */
+function isUnsafeWorldgenPath(r) {
+  if (r.includes("worldgen/processor_list/") || r.endsWith("worldgen/processor_list")) return true;
+  if (r.includes("worldgen/configured_feature/")) return true;
+  if (r.includes("worldgen/placed_feature/")) return true;
+  // Keep only local 01_ores + 02_vegetation — never pull ANY porter biome_modifier (incl. coded / inject_coded)
+  if (r.includes("biome_modifier")) return true;
+  return false;
+}
+
+/** Allow-list filter for data trees: skip unsafe structure/worldgen paths. */
+function isSafeDatapackRel(rel) {
+  return !isUnsafeStructurePath(rel);
+}
+
+function writeJsonIfChanged(dest, obj) {
+  const body = JSON.stringify(obj, null, 2) + "\n";
+  ensureDir(path.dirname(dest));
+  if (fs.existsSync(dest)) {
+    const existing = fs.readFileSync(dest, "utf8").replace(/\r\n/g, "\n");
+    if (existing === body || existing.trim() === body.trim()) {
+      stats.same++;
+      return "same";
+    }
+    fs.writeFileSync(dest, body, "utf8");
+    stats.updated++;
+    stats.worldgenRestored++;
+    return "updated";
+  }
+  fs.writeFileSync(dest, body, "utf8");
+  stats.copied++;
+  stats.worldgenRestored++;
+  return "copied";
+}
+
+function rmRecursiveIfExists(p) {
+  if (!fs.existsSync(p)) return 0;
+  let n = 0;
+  const st = fs.statSync(p);
+  if (st.isDirectory()) {
+    for (const ent of fs.readdirSync(p, { withFileTypes: true })) {
+      n += rmRecursiveIfExists(path.join(p, ent.name));
+    }
+    try {
+      fs.rmdirSync(p);
+      n++;
+    } catch (_) {
+      /* non-empty or race — ignore */
+    }
+  } else {
+    fs.unlinkSync(p);
+    n++;
+  }
+  return n;
+}
+
+/**
+ * After data sync: force the safe worldgen pack so a full sync cannot re-break worlds.
+ * - Two configured + two placed features only (code-backed NoneFeatureConfiguration)
+ * - Two NeoForge biome modifiers (exclude deep_dark)
+ * - Strip processor_list, coded modifiers, and any extra features from porter leaks
+ */
+function restoreSafeWorldgenPack() {
+  console.log("\n[worldgen] restore safe pack");
+
+  const cfgDir = path.join(DATA, "worldgen", "configured_feature");
+  const placedDir = path.join(DATA, "worldgen", "placed_feature");
+  const modDir = path.join(DATA, "neoforge", "biome_modifier");
+
+  writeJsonIfChanged(path.join(cfgDir, "cobblemon_ore.json"), {
+    type: "cobblemon:cobblemon_ore",
+    config: {},
+  });
+  writeJsonIfChanged(path.join(cfgDir, "overworld_decoration.json"), {
+    type: "cobblemon:overworld_decoration",
+    config: {},
+  });
+
+  writeJsonIfChanged(path.join(placedDir, "cobblemon_ore.json"), {
+    feature: "cobblemon:cobblemon_ore",
+    placement: [
+      { type: "minecraft:count", count: 20 },
+      { type: "minecraft:in_square" },
+      {
+        type: "minecraft:height_range",
+        height: {
+          type: "minecraft:uniform",
+          min_inclusive: { absolute: -56 },
+          max_inclusive: { absolute: 72 },
+        },
+      },
+      { type: "minecraft:biome" },
+    ],
+  });
+
+  writeJsonIfChanged(path.join(placedDir, "overworld_decoration.json"), {
+    feature: "cobblemon:overworld_decoration",
+    placement: [
+      { type: "minecraft:count", count: 3 },
+      { type: "minecraft:in_square" },
+      {
+        type: "minecraft:heightmap",
+        heightmap: "MOTION_BLOCKING_NO_LEAVES",
+      },
+      { type: "minecraft:biome" },
+    ],
+  });
+
+  // Biome modifiers (exclude deep_dark) — always ensure present
+  writeJsonIfChanged(path.join(modDir, "01_ores.json"), {
+    type: "neoforge:add_features",
+    biomes: {
+      type: "neoforge:and",
+      values: [
+        "#minecraft:is_overworld",
+        { type: "neoforge:not", value: "minecraft:deep_dark" },
+      ],
+    },
+    features: "cobblemon:cobblemon_ore",
+    step: "underground_ores",
+  });
+  writeJsonIfChanged(path.join(modDir, "02_vegetation.json"), {
+    type: "neoforge:add_features",
+    biomes: {
+      type: "neoforge:and",
+      values: [
+        "#minecraft:is_overworld",
+        { type: "neoforge:not", value: "minecraft:deep_dark" },
+      ],
+    },
+    features: "cobblemon:overworld_decoration",
+    step: "vegetal_decoration",
+  });
+
+  // Delete any extra configured/placed features
+  for (const [dir, kind] of [
+    [cfgDir, "configured_feature"],
+    [placedDir, "placed_feature"],
+  ]) {
+    if (!fs.existsSync(dir)) continue;
+    for (const name of fs.readdirSync(dir)) {
+      const base = name.replace(/\.json$/i, "");
+      if (!SAFE_FEATURE_IDS.includes(base)) {
+        const p = path.join(dir, name);
+        stats.worldgenDeleted += rmRecursiveIfExists(p);
+        console.log("  deleted extra", kind + ":", name);
+      }
+    }
+  }
+
+  // Delete coded + any other biome_modifier besides the two safe ones
+  if (fs.existsSync(modDir)) {
+    for (const name of fs.readdirSync(modDir)) {
+      if (!SAFE_BIOME_MODIFIERS.includes(name)) {
+        const p = path.join(modDir, name);
+        stats.worldgenDeleted += rmRecursiveIfExists(p);
+        console.log("  deleted biome_modifier:", name);
+      }
+    }
+  }
+  const coded = path.join(modDir, "coded.json");
+  if (fs.existsSync(coded)) {
+    stats.worldgenDeleted += rmRecursiveIfExists(coded);
+    console.log("  deleted biome_modifier: coded.json");
+  }
+
+  // processor_list must not exist
+  const procList = path.join(DATA, "worldgen", "processor_list");
+  if (fs.existsSync(procList)) {
+    stats.worldgenDeleted += rmRecursiveIfExists(procList);
+    console.log("  deleted worldgen/processor_list");
+  }
+
+  console.log(
+    "  safe features:",
+    SAFE_FEATURE_IDS.join(", "),
+    "| modifiers:",
+    SAFE_BIOME_MODIFIERS.join(", ")
+  );
 }
 
 function generateItemDefinitions(itemIds) {
@@ -308,7 +517,7 @@ function main() {
 
   // --- DATA ---
   console.log("\n[data] species packs");
-  syncTree(path.join(PORTER, "09_data_species"), DATA, (rel) => !isUnsafeStructurePath(rel));
+  syncTree(path.join(PORTER, "09_data_species"), DATA, isSafeDatapackRel);
 
   console.log("[data] recipes / loot / advancements");
   for (const [sub, dest] of [
@@ -317,20 +526,23 @@ function main() {
     ["advancement", "advancement"],
   ]) {
     const from = path.join(PORTER, "10_data_recipes_loot", sub);
-    if (fs.existsSync(from)) syncTree(from, path.join(DATA, dest));
+    if (fs.existsSync(from)) syncTree(from, path.join(DATA, dest), isSafeDatapackRel);
   }
 
   console.log("[data] spawning");
   for (const sub of ["spawn_pool_world", "spawn_detail_presets", "spawn_bait_effects", "spawn_rules", "spawning"]) {
     const from = path.join(PORTER, "11_data_spawning", sub);
-    if (fs.existsSync(from)) syncTree(from, path.join(DATA, sub));
+    if (fs.existsSync(from)) syncTree(from, path.join(DATA, sub), isSafeDatapackRel);
   }
 
-  console.log("[data] tags (skip structure tags)");
-  syncTree(path.join(PORTER, "12_data_tags"), path.join(DATA, "tags"), (rel) => !isUnsafeStructurePath(rel));
+  console.log("[data] tags (skip structure / worldgen tags that break worlds)");
+  syncTree(path.join(PORTER, "12_data_tags"), path.join(DATA, "tags"), isSafeDatapackRel);
 
-  console.log("[data] other datapacks (skip structures)");
-  syncTree(path.join(PORTER, "13_data_other"), DATA, (rel) => !isUnsafeStructurePath(rel));
+  console.log("[data] other datapacks (skip structures / unsafe worldgen / biome_modifiers)");
+  syncTree(path.join(PORTER, "13_data_other"), DATA, isSafeDatapackRel);
+
+  // Force safe worldgen after any data tree sync (cannot re-break worlds)
+  restoreSafeWorldgenPack();
 
   // --- IDs + item defs ---
   console.log("\n[content] ids + items/*.json");
@@ -348,6 +560,10 @@ function main() {
     porter: PORTER,
     stats,
     catalog: catalog.counts,
+    safeWorldgen: {
+      features: SAFE_FEATURE_IDS,
+      biomeModifiers: SAFE_BIOME_MODIFIERS,
+    },
   };
   ensureDir(GEN);
   fs.writeFileSync(path.join(GEN, "sync_report.json"), JSON.stringify(report, null, 2), "utf8");
